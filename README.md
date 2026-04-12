@@ -1,23 +1,75 @@
-# ✨ Welcome to Your Spark Template!
-You've just launched your brand-new Spark Template Codespace — everything’s fired up and ready for you to explore, build, and create with Spark!
+# Scopa Score Tracker
 
-This template is your blank canvas. It comes with a minimal setup to help you get started quickly with Spark development.
+A mobile-first web application for tracking scores in the traditional Italian card game Scopa.
 
-🚀 What's Inside?
-- A clean, minimal Spark environment
-- Pre-configured for local development
-- Ready to scale with your ideas
-  
-🧠 What Can You Do?
+## Features
 
-Right now, this is just a starting point — the perfect place to begin building and testing your Spark applications.
+- Track scores for 2-6 players
+- Score tracking for all Scopa categories (Cards, Coins, Settebello, Primiera, Scopa)
+- Hand-based scoring system - enter points for each hand then bank them
+- Built-in Primiera calculator
+- Persistent game state (scores saved to browser)
+- Mobile-friendly responsive design
 
-🧹 Just Exploring?
-No problem! If you were just checking things out and don’t need to keep this code:
+## Deploying to GitHub Pages
 
-- Simply delete your Spark.
-- Everything will be cleaned up — no traces left behind.
+### Option 1: Automatic Deployment (Recommended)
 
-📄 License For Spark Template Resources 
+This repository includes a GitHub Actions workflow that automatically deploys to GitHub Pages when you push to the `main` branch.
 
-The Spark Template files and resources from GitHub are licensed under the terms of the MIT license, Copyright GitHub, Inc.
+**Steps:**
+
+1. Push this code to a GitHub repository
+2. Go to your repository Settings → Pages
+3. Under "Build and deployment", set Source to **GitHub Actions**
+4. Push a commit to the `main` branch
+5. The workflow will automatically build and deploy your app
+6. Your app will be available at `https://[username].github.io/[repo-name]/`
+
+### Option 2: Manual Build and Deploy
+
+If you prefer to build and deploy manually:
+
+1. Update the `base` path in `vite.config.ts`:
+   ```ts
+   base: '/[your-repo-name]/',
+   ```
+
+2. Build the project:
+   ```bash
+   npm install
+   npm run build
+   ```
+
+3. Deploy the `dist` folder to GitHub Pages using your preferred method
+
+## Local Development
+
+```bash
+npm install
+npm run dev
+```
+
+## Technologies Used
+
+- React 19
+- TypeScript
+- Vite
+- Tailwind CSS
+- shadcn/ui components
+- Framer Motion
+- LocalStorage for persistence
+
+## Game Rules Reference
+
+Scopa is played with a 40-card Italian deck (or standard deck using 1-10). Points are awarded for:
+
+- **Cards** (1 point): Player with the most cards
+- **Coins** (1 point): Player with the most coin suit cards
+- **Settebello** (1 point): Player who captures the 7 of coins
+- **Primiera** (1 point): Best combination of one card per suit (calculated by point values)
+- **Scopa** (1 point each): Awarded each time a player clears the table
+
+## License
+
+MIT
