@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useLocalStorage } from '@/hooks/use-local-storage'
+import { useKV } from '@github/spark/hooks'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -50,7 +50,7 @@ function AnimatedScore({ value }: { value: number }) {
 }
 
 function App() {
-  const [players, setPlayers] = useLocalStorage<Player[]>('scopa-players', [])
+  const [players, setPlayers] = useKV<Player[]>('scopa-players', [])
   const [gameStarted, setGameStarted] = useState(players && players.length > 0)
   
   const [handCardsWinner, setHandCardsWinner] = useState<string | null>(null)
