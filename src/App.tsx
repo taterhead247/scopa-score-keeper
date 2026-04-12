@@ -7,17 +7,18 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/co
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Label } from '@/components/ui/label'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
-import { Plus, Calculator, ArrowsClockwise } from '@phosphor-icons/react'
-import { motion } from 'framer-motion'
+import { Plus, Minus, Calculator, ArrowsClockwise, Users, Check } from '@phosphor-icons/react'
+import { motion, AnimatePresence } from 'framer-motion'
 
 type Player = {
+  id: string
   name: string
-  cards: number
-  coins: number
-  settebello: number
-  primiera: number
-  scopa: number
+  totalScore: number
 }
 
 type PremieraCard = {
@@ -32,24 +33,6 @@ const SUIT_LABELS = {
   diamonds: '♦',
   clubs: '♣',
   spades: '♠'
-}
-
-const DEFAULT_PLAYER_1: Player = {
-  name: 'Player 1',
-  cards: 0,
-  coins: 0,
-  settebello: 0,
-  primiera: 0,
-  scopa: 0
-}
-
-const DEFAULT_PLAYER_2: Player = {
-  name: 'Player 2',
-  cards: 0,
-  coins: 0,
-  settebello: 0,
-  primiera: 0,
-  scopa: 0
 }
 
 function AnimatedScore({ value }: { value: number }) {
@@ -67,271 +50,255 @@ function AnimatedScore({ value }: { value: number }) {
 }
 
 function App() {
-  const [player1, setPlayer1] = useKV<Player>('player1', DEFAULT_PLAYER_1)
-  const [player2, setPlayer2] = useKV<Player>('player2', DEFAULT_PLAYER_2)
+  const [players, setPlayers] = useKV<Player[]>('scopa-players', [])
+  const [gameStarted, setGameStarted] = useState(players && players.length > 0)
+  
+  const [handCardsWinner, setHandCardsWinner] = useState<string | null>(null)
+  const [handCoinsWinner, setHandCoinsWinner] = useState<string | null>(null)
+  const [handSettebelloWinner, setHandSettebelloWinner] = useState<string | null>(null)
+  const [handPremieraWinner, setHandPremieraWinner] = useState<string | null>(null)
+  const [handScopaScores, setHandScopaScores] = useState<Record<string, number>>({})
 
-  const [editingPlayer, setEditingPlayer] = useState<1 | 2 | null>(null)
-  const [tempName, setTempName] = useState('')
   const [premieraOpen, setPremieraOpen] = useState(false)
-  const [p1Cards, setP1Cards] = useState<PremieraCard[]>([
-    { suit: 'hearts', value: null },
-    { suit: 'diamonds', value: null },
-    { suit: 'clubs', value: null },
-    { suit: 'spades', value: null }
-  ])
-  const [p2Cards, setP2Cards] = useState<PremieraCard[]>([
-    { suit: 'hearts', value: null },
-    { suit: 'diamonds', value: null },
-    { suit: 'clubs', value: null },
-    { suit: 'spades', value: null }
-  ])
+  const [premieraCards, setPremieraCards] = useState<Record<string, PremieraCard[]>>({})
 
-  const addPoint = (player: 1 | 2, category: keyof Omit<Player, 'name'>) => {
-    const currentPlayer = player === 1 ? player1 : player2
-    const setPlayer = player === 1 ? setPlayer1 : setPlayer2
+  const [setupOpen, setSetupOpen] = useState(!gameStarted)
+  const [playerCount, setPlayerCount] = useState<number>(2)
+  const [tempPlayerNames, setTempPlayerNames] = useState<string[]>(['Player 1', 'Player 2'])
 
-    setPlayer((prev) => ({
-      name: prev?.name || `Player ${player}`,
-      cards: prev?.cards || 0,
-      coins: prev?.coins || 0,
-      settebello: prev?.settebello || 0,
-      primiera: prev?.primiera || 0,
-      scopa: prev?.scopa || 0,
-      [category]: (prev?.[category] || 0) + 1
+  const startGame = () => {
+    const newPlayers: Player[] = tempPlayerNames.map((name, idx) => ({
+      id: `player-${idx}`,
+      name: name.trim() || `Player ${idx + 1}`,
+      totalScore: 0
     }))
+    
+    setPlayers(newPlayers)
+    setGameStarted(true)
+    setSetupOpen(false)
+    
+    const initialScopa: Record<string, number> = {}
+    newPlayers.forEach(p => {
+      initialScopa[p.id] = 0
+    })
+    setHandScopaScores(initialScopa)
+    
+    toast.success('Game started!')
+  }
 
-    toast.success(`Point added to ${currentPlayer?.name || `Player ${player}`}`)
+  const bankHand = () => {
+    if (!players) return
+
+    let handScores: Record<string, number> = {}
+    
+    players.forEach(p => {
+      handScores[p.id] = 0
+    })
+
+    if (handCardsWinner) handScores[handCardsWinner] += 1
+    if (handCoinsWinner) handScores[handCoinsWinner] += 1
+    if (handSettebelloWinner) handScores[handSettebelloWinner] += 1
+    if (handPremieraWinner) handScores[handPremieraWinner] += 1
+    
+    Object.entries(handScopaScores).forEach(([playerId, scopaCount]) => {
+      handScores[playerId] += scopaCount
+    })
+
+    setPlayers((currentPlayers) => {
+      if (!currentPlayers) return []
+      return currentPlayers.map(p => ({
+        ...p,
+        totalScore: p.totalScore + (handScores[p.id] || 0)
+      }))
+    })
+
+    setHandCardsWinner(null)
+    setHandCoinsWinner(null)
+    setHandSettebelloWinner(null)
+    setHandPremieraWinner(null)
+    
+    const resetScopa: Record<string, number> = {}
+    players.forEach(p => {
+      resetScopa[p.id] = 0
+    })
+    setHandScopaScores(resetScopa)
+
+    toast.success('Hand banked!')
+  }
+
+  const adjustScopa = (playerId: string, delta: number) => {
+    setHandScopaScores(prev => ({
+      ...prev,
+      [playerId]: Math.max(0, (prev[playerId] || 0) + delta)
+    }))
   }
 
   const resetGame = () => {
-    setPlayer1((prev) => ({
-      name: prev?.name || 'Player 1',
-      cards: 0,
-      coins: 0,
-      settebello: 0,
-      primiera: 0,
-      scopa: 0
-    }))
-
-    setPlayer2((prev) => ({
-      name: prev?.name || 'Player 2',
-      cards: 0,
-      coins: 0,
-      settebello: 0,
-      primiera: 0,
-      scopa: 0
-    }))
-
+    setPlayers((currentPlayers) => {
+      if (!currentPlayers) return []
+      return currentPlayers.map(p => ({
+        ...p,
+        totalScore: 0
+      }))
+    })
+    
+    setHandCardsWinner(null)
+    setHandCoinsWinner(null)
+    setHandSettebelloWinner(null)
+    setHandPremieraWinner(null)
+    
+    const resetScopa: Record<string, number> = {}
+    players?.forEach(p => {
+      resetScopa[p.id] = 0
+    })
+    setHandScopaScores(resetScopa)
+    
     toast.success('Game reset')
   }
 
-  const startEditingName = (player: 1 | 2) => {
-    setEditingPlayer(player)
-    const playerData = player === 1 ? player1 : player2
-    setTempName(playerData?.name || `Player ${player}`)
-  }
-
-  const savePlayerName = () => {
-    if (!editingPlayer) return
-
-    const setPlayer = editingPlayer === 1 ? setPlayer1 : setPlayer2
-    const prev = editingPlayer === 1 ? player1 : player2
-    setPlayer({
-      name: tempName.trim() || `Player ${editingPlayer}`,
-      cards: prev?.cards || 0,
-      coins: prev?.coins || 0,
-      settebello: prev?.settebello || 0,
-      primiera: prev?.primiera || 0,
-      scopa: prev?.scopa || 0
+  const openPremieraCalculator = () => {
+    if (!players) return
+    
+    const initialCards: Record<string, PremieraCard[]> = {}
+    players.forEach(p => {
+      initialCards[p.id] = [
+        { suit: 'hearts', value: null },
+        { suit: 'diamonds', value: null },
+        { suit: 'clubs', value: null },
+        { suit: 'spades', value: null }
+      ]
     })
-
-    setEditingPlayer(null)
+    setPremieraCards(initialCards)
+    setPremieraOpen(true)
   }
 
-  const calculateTotal = (player?: Player) => {
-    if (!player) return 0
-    return player.cards + player.coins + player.settebello + player.primiera + player.scopa
+  const updatePremieraCard = (playerId: string, suitIndex: number, value: number | null) => {
+    setPremieraCards(prev => ({
+      ...prev,
+      [playerId]: prev[playerId].map((card, idx) => 
+        idx === suitIndex ? { ...card, value } : card
+      )
+    }))
   }
 
-  const calculatePremiera = () => {
-    const p1Total = p1Cards.reduce((sum, card) => {
-      const value = card.value ?? 0
-      return sum + CARD_VALUES.indexOf(value) + 1
+  const calculatePremieraForPlayer = (playerId: string): number => {
+    const cards = premieraCards[playerId]
+    if (!cards) return 0
+    
+    return cards.reduce((sum, card) => {
+      if (card.value === null) return sum
+      const valueIndex = CARD_VALUES.indexOf(card.value)
+      return sum + (valueIndex >= 0 ? valueIndex + 1 : 0)
     }, 0)
+  }
 
-    const p2Total = p2Cards.reduce((sum, card) => {
-      const value = card.value ?? 0
-      return sum + CARD_VALUES.indexOf(value) + 1
-    }, 0)
-
-    return { p1Total, p2Total }
+  const allPremieraCardsSelected = (): boolean => {
+    if (!players) return false
+    return players.every(p => {
+      const cards = premieraCards[p.id]
+      return cards && cards.every(c => c.value !== null)
+    })
   }
 
   const awardPremiera = () => {
-    const { p1Total, p2Total } = calculatePremiera()
+    if (!players) return
+    
+    const scores: Array<{ playerId: string, score: number, name: string }> = players.map(p => ({
+      playerId: p.id,
+      score: calculatePremieraForPlayer(p.id),
+      name: p.name
+    }))
 
-    if (p1Total > p2Total) {
-      setPlayer1((prev) => ({
-        name: prev?.name || 'Player 1',
-        cards: prev?.cards || 0,
-        coins: prev?.coins || 0,
-        settebello: prev?.settebello || 0,
-        primiera: (prev?.primiera || 0) + 1,
-        scopa: prev?.scopa || 0
-      }))
-      toast.success(`${player1?.name || 'Player 1'} wins Primiera!`)
-    } else if (p2Total > p1Total) {
-      setPlayer2((prev) => ({
-        name: prev?.name || 'Player 2',
-        cards: prev?.cards || 0,
-        coins: prev?.coins || 0,
-        settebello: prev?.settebello || 0,
-        primiera: (prev?.primiera || 0) + 1,
-        scopa: prev?.scopa || 0
-      }))
-      toast.success(`${player2?.name || 'Player 2'} wins Primiera!`)
+    scores.sort((a, b) => b.score - a.score)
+    
+    if (scores[0].score > scores[1].score) {
+      setHandPremieraWinner(scores[0].playerId)
+      toast.success(`${scores[0].name} wins Primiera!`)
     } else {
       toast.info("It's a tie - no points awarded")
     }
 
     setPremieraOpen(false)
-    resetPremieraCards()
   }
 
-  const resetPremieraCards = () => {
-    setP1Cards([
-      { suit: 'hearts', value: null },
-      { suit: 'diamonds', value: null },
-      { suit: 'clubs', value: null },
-      { suit: 'spades', value: null }
-    ])
-    setP2Cards([
-      { suit: 'hearts', value: null },
-      { suit: 'diamonds', value: null },
-      { suit: 'clubs', value: null },
-      { suit: 'spades', value: null }
-    ])
+  const changePlayerCount = (count: number) => {
+    setPlayerCount(count)
+    const newNames = Array.from({ length: count }, (_, i) => 
+      tempPlayerNames[i] || `Player ${i + 1}`
+    )
+    setTempPlayerNames(newNames)
   }
 
-  const allCardsSelected = () => {
-    return p1Cards.every(card => card.value !== null) && p2Cards.every(card => card.value !== null)
+  if (!gameStarted) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="w-full max-w-md p-6">
+          <h1 className="text-3xl font-bold text-center mb-6">Scopa Score Tracker</h1>
+          
+          <div className="space-y-6">
+            <div>
+              <Label className="text-base font-semibold mb-3 block">Number of Players</Label>
+              <div className="grid grid-cols-5 gap-2">
+                {[2, 3, 4, 5, 6].map(count => (
+                  <Button
+                    key={count}
+                    variant={playerCount === count ? 'default' : 'outline'}
+                    onClick={() => changePlayerCount(count)}
+                    className="h-12"
+                  >
+                    {count}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-base font-semibold mb-3 block">Player Names</Label>
+              <div className="space-y-2">
+                {tempPlayerNames.map((name, idx) => (
+                  <Input
+                    key={idx}
+                    placeholder={`Player ${idx + 1}`}
+                    value={name}
+                    onChange={(e) => {
+                      const newNames = [...tempPlayerNames]
+                      newNames[idx] = e.target.value
+                      setTempPlayerNames(newNames)
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <Button onClick={startGame} className="w-full" size="lg">
+              Start Game
+            </Button>
+          </div>
+        </Card>
+      </div>
+    )
+  }
+
+  const currentHandTotal = (playerId: string): number => {
+    let total = 0
+    if (handCardsWinner === playerId) total += 1
+    if (handCoinsWinner === playerId) total += 1
+    if (handSettebelloWinner === playerId) total += 1
+    if (handPremieraWinner === playerId) total += 1
+    total += handScopaScores[playerId] || 0
+    return total
   }
 
   return (
     <div className="min-h-screen bg-background p-4 pb-20">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         <header className="mb-6 text-center">
           <h1 className="text-3xl font-bold text-foreground mb-2">Scopa Score Tracker</h1>
           <div className="flex gap-3 justify-center flex-wrap">
-            <Sheet open={premieraOpen} onOpenChange={setPremieraOpen}>
-              <SheetTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <Calculator className="mr-2" />
-                  Calculate Primiera
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="bottom" className="h-[85vh] overflow-y-auto">
-                <SheetHeader>
-                  <SheetTitle>Primiera Calculator</SheetTitle>
-                </SheetHeader>
-                <div className="mt-6 space-y-6">
-                  <div>
-                    <h3 className="font-semibold text-lg mb-3">{player1?.name || 'Player 1'}</h3>
-                    <div className="grid grid-cols-2 gap-3">
-                      {p1Cards.map((card, idx) => (
-                        <div key={card.suit}>
-                          <label className="block text-sm font-medium mb-2">
-                            {SUIT_LABELS[card.suit]} {card.suit.charAt(0).toUpperCase() + card.suit.slice(1)}
-                          </label>
-                          <select
-                            value={card.value ?? ''}
-                            onChange={(e) => {
-                              const newCards = [...p1Cards]
-                              newCards[idx].value = e.target.value ? parseInt(e.target.value) : null
-                              setP1Cards(newCards)
-                            }}
-                            className="w-full p-2 border border-input rounded-md bg-card text-foreground"
-                          >
-                            <option value="">Select card</option>
-                            {CARD_VALUES.map(val => (
-                              <option key={val} value={val}>{val}</option>
-                            ))}
-                          </select>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  <div>
-                    <h3 className="font-semibold text-lg mb-3">{player2?.name || 'Player 2'}</h3>
-                    <div className="grid grid-cols-2 gap-3">
-                      {p2Cards.map((card, idx) => (
-                        <div key={card.suit}>
-                          <label className="block text-sm font-medium mb-2">
-                            {SUIT_LABELS[card.suit]} {card.suit.charAt(0).toUpperCase() + card.suit.slice(1)}
-                          </label>
-                          <select
-                            value={card.value ?? ''}
-                            onChange={(e) => {
-                              const newCards = [...p2Cards]
-                              newCards[idx].value = e.target.value ? parseInt(e.target.value) : null
-                              setP2Cards(newCards)
-                            }}
-                            className="w-full p-2 border border-input rounded-md bg-card text-foreground"
-                          >
-                            <option value="">Select card</option>
-                            {CARD_VALUES.map(val => (
-                              <option key={val} value={val}>{val}</option>
-                            ))}
-                          </select>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {allCardsSelected() && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="bg-muted p-4 rounded-lg"
-                    >
-                      <p className="text-sm font-medium mb-2">Scores:</p>
-                      <p>{player1?.name || 'Player 1'}: {calculatePremiera().p1Total}</p>
-                      <p>{player2?.name || 'Player 2'}: {calculatePremiera().p2Total}</p>
-                      {calculatePremiera().p1Total !== calculatePremiera().p2Total && (
-                        <p className="font-semibold mt-2 text-accent">
-                          Winner: {calculatePremiera().p1Total > calculatePremiera().p2Total ? (player1?.name || 'Player 1') : (player2?.name || 'Player 2')}
-                        </p>
-                      )}
-                      {calculatePremiera().p1Total === calculatePremiera().p2Total && (
-                        <p className="font-semibold mt-2 text-muted-foreground">Tie - No points awarded</p>
-                      )}
-                    </motion.div>
-                  )}
-
-                  <div className="flex gap-3">
-                    <Button 
-                      onClick={awardPremiera} 
-                      disabled={!allCardsSelected()}
-                      className="flex-1"
-                    >
-                      Award Point
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      onClick={() => {
-                        resetPremieraCards()
-                        setPremieraOpen(false)
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              </SheetContent>
-            </Sheet>
+            <Button variant="outline" size="sm" onClick={openPremieraCalculator}>
+              <Calculator className="mr-2" />
+              Calculate Primiera
+            </Button>
 
             <AlertDialog>
               <AlertDialogTrigger asChild>
@@ -353,168 +320,248 @@ function App() {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+
+            <Button variant="outline" size="sm" onClick={() => { setGameStarted(false); setSetupOpen(true); }}>
+              <Users className="mr-2" />
+              Change Players
+            </Button>
           </div>
         </header>
 
-        <div className="grid md:grid-cols-2 gap-6">
-          <Card className="p-6 shadow-lg">
-            <div className="mb-6">
-              {editingPlayer === 1 ? (
-                <Input
-                  value={tempName}
-                  onChange={(e) => setTempName(e.target.value)}
-                  onBlur={savePlayerName}
-                  onKeyDown={(e) => e.key === 'Enter' && savePlayerName()}
-                  autoFocus
-                  className="text-2xl font-semibold"
-                />
-              ) : (
-                <h2
-                  onClick={() => startEditingName(1)}
-                  className="text-2xl font-semibold cursor-pointer hover:text-accent transition-colors"
-                >
-                  {player1?.name || 'Player 1'}
-                </h2>
-              )}
-              <div className="mt-4 text-center">
-                <AnimatedScore value={calculateTotal(player1)} />
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+          {players?.map(player => (
+            <Card key={player.id} className="p-4 shadow-lg">
+              <h2 className="text-xl font-semibold mb-2">{player.name}</h2>
+              <div className="text-center mb-3">
+                <AnimatedScore value={player.totalScore} />
               </div>
-            </div>
-
-            <Separator className="my-4" />
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary">Cards</Badge>
-                  <span className="text-xl font-semibold">{player1?.cards || 0}</span>
-                </div>
-                <Button onClick={() => addPoint(1, 'cards')} size="sm">
-                  <Plus />
-                </Button>
+              <div className="text-sm text-muted-foreground text-center">
+                This hand: <span className="font-semibold text-accent">{currentHandTotal(player.id)}</span>
               </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary">Coins</Badge>
-                  <span className="text-xl font-semibold">{player1?.coins || 0}</span>
-                </div>
-                <Button onClick={() => addPoint(1, 'coins')} size="sm">
-                  <Plus />
-                </Button>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary">Settebello</Badge>
-                  <span className="text-xl font-semibold">{player1?.settebello || 0}</span>
-                </div>
-                <Button onClick={() => addPoint(1, 'settebello')} size="sm">
-                  <Plus />
-                </Button>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary">Primiera</Badge>
-                  <span className="text-xl font-semibold">{player1?.primiera || 0}</span>
-                </div>
-                <Button onClick={() => addPoint(1, 'primiera')} size="sm">
-                  <Plus />
-                </Button>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary">Scopa</Badge>
-                  <span className="text-xl font-semibold">{player1?.scopa || 0}</span>
-                </div>
-                <Button onClick={() => addPoint(1, 'scopa')} size="sm">
-                  <Plus />
-                </Button>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="p-6 shadow-lg">
-            <div className="mb-6">
-              {editingPlayer === 2 ? (
-                <Input
-                  value={tempName}
-                  onChange={(e) => setTempName(e.target.value)}
-                  onBlur={savePlayerName}
-                  onKeyDown={(e) => e.key === 'Enter' && savePlayerName()}
-                  autoFocus
-                  className="text-2xl font-semibold"
-                />
-              ) : (
-                <h2
-                  onClick={() => startEditingName(2)}
-                  className="text-2xl font-semibold cursor-pointer hover:text-accent transition-colors"
-                >
-                  {player2?.name || 'Player 2'}
-                </h2>
-              )}
-              <div className="mt-4 text-center">
-                <AnimatedScore value={calculateTotal(player2)} />
-              </div>
-            </div>
-
-            <Separator className="my-4" />
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary">Cards</Badge>
-                  <span className="text-xl font-semibold">{player2?.cards || 0}</span>
-                </div>
-                <Button onClick={() => addPoint(2, 'cards')} size="sm">
-                  <Plus />
-                </Button>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary">Coins</Badge>
-                  <span className="text-xl font-semibold">{player2?.coins || 0}</span>
-                </div>
-                <Button onClick={() => addPoint(2, 'coins')} size="sm">
-                  <Plus />
-                </Button>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary">Settebello</Badge>
-                  <span className="text-xl font-semibold">{player2?.settebello || 0}</span>
-                </div>
-                <Button onClick={() => addPoint(2, 'settebello')} size="sm">
-                  <Plus />
-                </Button>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary">Primiera</Badge>
-                  <span className="text-xl font-semibold">{player2?.primiera || 0}</span>
-                </div>
-                <Button onClick={() => addPoint(2, 'primiera')} size="sm">
-                  <Plus />
-                </Button>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary">Scopa</Badge>
-                  <span className="text-xl font-semibold">{player2?.scopa || 0}</span>
-                </div>
-                <Button onClick={() => addPoint(2, 'scopa')} size="sm">
-                  <Plus />
-                </Button>
-              </div>
-            </div>
-          </Card>
+            </Card>
+          ))}
         </div>
+
+        <Card className="p-6 shadow-lg">
+          <h3 className="text-xl font-bold mb-4">Current Hand</h3>
+          
+          <div className="space-y-6">
+            <div>
+              <Label className="text-base font-semibold mb-2 block">Cards (Most Cards)</Label>
+              <RadioGroup value={handCardsWinner || ''} onValueChange={setHandCardsWinner}>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
+                  {players?.map(player => (
+                    <div key={player.id} className="flex items-center space-x-2">
+                      <RadioGroupItem value={player.id} id={`cards-${player.id}`} />
+                      <Label htmlFor={`cards-${player.id}`} className="cursor-pointer">
+                        {player.name}
+                      </Label>
+                    </div>
+                  ))}
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="" id="cards-none" />
+                    <Label htmlFor="cards-none" className="cursor-pointer">None</Label>
+                  </div>
+                </div>
+              </RadioGroup>
+            </div>
+
+            <Separator />
+
+            <div>
+              <Label className="text-base font-semibold mb-2 block">Coins (Most Coins)</Label>
+              <RadioGroup value={handCoinsWinner || ''} onValueChange={setHandCoinsWinner}>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
+                  {players?.map(player => (
+                    <div key={player.id} className="flex items-center space-x-2">
+                      <RadioGroupItem value={player.id} id={`coins-${player.id}`} />
+                      <Label htmlFor={`coins-${player.id}`} className="cursor-pointer">
+                        {player.name}
+                      </Label>
+                    </div>
+                  ))}
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="" id="coins-none" />
+                    <Label htmlFor="coins-none" className="cursor-pointer">None</Label>
+                  </div>
+                </div>
+              </RadioGroup>
+            </div>
+
+            <Separator />
+
+            <div>
+              <Label className="text-base font-semibold mb-2 block">Settebello (7 of Coins)</Label>
+              <RadioGroup value={handSettebelloWinner || ''} onValueChange={setHandSettebelloWinner}>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
+                  {players?.map(player => (
+                    <div key={player.id} className="flex items-center space-x-2">
+                      <RadioGroupItem value={player.id} id={`settebello-${player.id}`} />
+                      <Label htmlFor={`settebello-${player.id}`} className="cursor-pointer">
+                        {player.name}
+                      </Label>
+                    </div>
+                  ))}
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="" id="settebello-none" />
+                    <Label htmlFor="settebello-none" className="cursor-pointer">None</Label>
+                  </div>
+                </div>
+              </RadioGroup>
+            </div>
+
+            <Separator />
+
+            <div>
+              <Label className="text-base font-semibold mb-2 block">Primiera</Label>
+              <RadioGroup value={handPremieraWinner || ''} onValueChange={setHandPremieraWinner}>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
+                  {players?.map(player => (
+                    <div key={player.id} className="flex items-center space-x-2">
+                      <RadioGroupItem value={player.id} id={`primiera-${player.id}`} />
+                      <Label htmlFor={`primiera-${player.id}`} className="cursor-pointer">
+                        {player.name}
+                      </Label>
+                    </div>
+                  ))}
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="" id="primiera-none" />
+                    <Label htmlFor="primiera-none" className="cursor-pointer">None</Label>
+                  </div>
+                </div>
+              </RadioGroup>
+            </div>
+
+            <Separator />
+
+            <div>
+              <Label className="text-base font-semibold mb-4 block">Scopa</Label>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                {players?.map(player => (
+                  <div key={player.id} className="flex flex-col items-center gap-2">
+                    <Label className="text-sm">{player.name}</Label>
+                    <div className="flex items-center gap-2">
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => adjustScopa(player.id, -1)}
+                      >
+                        <Minus />
+                      </Button>
+                      <span className="text-xl font-semibold w-8 text-center">
+                        {handScopaScores[player.id] || 0}
+                      </span>
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => adjustScopa(player.id, 1)}
+                      >
+                        <Plus />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <Button onClick={bankHand} className="w-full mt-6" size="lg">
+            <Check className="mr-2" />
+            Bank Hand
+          </Button>
+        </Card>
+
+        <Sheet open={premieraOpen} onOpenChange={setPremieraOpen}>
+          <SheetContent side="bottom" className="h-[85vh] overflow-y-auto">
+            <SheetHeader>
+              <SheetTitle>Primiera Calculator</SheetTitle>
+            </SheetHeader>
+            <div className="mt-6 space-y-6">
+              {players?.map(player => (
+                <div key={player.id}>
+                  <h3 className="font-semibold text-lg mb-3">{player.name}</h3>
+                  <div className="grid grid-cols-2 gap-3">
+                    {premieraCards[player.id]?.map((card, idx) => (
+                      <div key={card.suit}>
+                        <Label className="block text-sm font-medium mb-2">
+                          {SUIT_LABELS[card.suit]} {card.suit.charAt(0).toUpperCase() + card.suit.slice(1)}
+                        </Label>
+                        <Select
+                          value={card.value?.toString() || ''}
+                          onValueChange={(val) => updatePremieraCard(player.id, idx, val ? parseInt(val) : null)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select card" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {CARD_VALUES.map(val => (
+                              <SelectItem key={val} value={val.toString()}>
+                                {val}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ))}
+                  </div>
+                  <Separator className="mt-4" />
+                </div>
+              ))}
+
+              {allPremieraCardsSelected() && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-muted p-4 rounded-lg"
+                >
+                  <p className="text-sm font-medium mb-2">Scores:</p>
+                  {players?.map(player => (
+                    <p key={player.id}>
+                      {player.name}: {calculatePremieraForPlayer(player.id)}
+                    </p>
+                  ))}
+                  {(() => {
+                    const scores = players?.map(p => ({
+                      name: p.name,
+                      score: calculatePremieraForPlayer(p.id)
+                    })) || []
+                    scores.sort((a, b) => b.score - a.score)
+                    
+                    if (scores.length > 1 && scores[0].score !== scores[1].score) {
+                      return (
+                        <p className="font-semibold mt-2 text-accent">
+                          Winner: {scores[0].name}
+                        </p>
+                      )
+                    } else {
+                      return (
+                        <p className="font-semibold mt-2 text-muted-foreground">
+                          Tie - No points awarded
+                        </p>
+                      )
+                    }
+                  })()}
+                </motion.div>
+              )}
+
+              <div className="flex gap-3">
+                <Button 
+                  onClick={awardPremiera} 
+                  disabled={!allPremieraCardsSelected()}
+                  className="flex-1"
+                >
+                  Award Point
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setPremieraOpen(false)}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </SheetContent>
+        </Sheet>
       </div>
     </div>
   )
