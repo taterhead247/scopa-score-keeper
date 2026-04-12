@@ -2,7 +2,7 @@
 
 A mobile-first web application for tracking scores in the traditional Italian card game Scopa.
 
-## Features
+## Features 
 
 - Track scores for 2-6 players
 - Score tracking for all Scopa categories (Cards, Coins, Settebello, Primiera, Scopa)
