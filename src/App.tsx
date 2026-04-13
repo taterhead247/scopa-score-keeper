@@ -73,51 +73,53 @@ export default function App() {
   }
 
   const bankHand = () => {
-    if (!players || players.length === 0) return
-    
-    const handScores: Record<string, number> = { ...handScopaScores }
-    
-    if (handCardsWinner) handScores[handCardsWinner] = (handScores[handCardsWinner] || 0) + 1
-    if (handCoinsWinner) handScores[handCoinsWinner] = (handScores[handCoinsWinner] || 0) + 1
-    if (handSettebelloWinner) handScores[handSettebelloWinner] = (handScores[handSettebelloWinner] || 0) + 1
-    if (handPremieraWinner) handScores[handPremieraWinner] = (handScores[handPremieraWinner] || 0) + 1
+    setHandScopaScores((currentScopa) => {
+      setHandCardsWinner((currentCardsWinner) => {
+        setHandCoinsWinner((currentCoinsWinner) => {
+          setHandSettebelloWinner((currentSettebelloWinner) => {
+            setHandPremieraWinner((currentPremieraWinner) => {
+              setPlayers((currentPlayers) => {
+                if (!currentPlayers || currentPlayers.length === 0) return currentPlayers || []
+                
+                const handScores: Record<string, number> = { ...(currentScopa || {}) }
+                
+                if (currentCardsWinner) handScores[currentCardsWinner] = (handScores[currentCardsWinner] || 0) + 1
+                if (currentCoinsWinner) handScores[currentCoinsWinner] = (handScores[currentCoinsWinner] || 0) + 1
+                if (currentSettebelloWinner) handScores[currentSettebelloWinner] = (handScores[currentSettebelloWinner] || 0) + 1
+                if (currentPremieraWinner) handScores[currentPremieraWinner] = (handScores[currentPremieraWinner] || 0) + 1
 
-    setPlayers((currentPlayers) => {
-      if (!currentPlayers) return []
-      return currentPlayers.map(p => ({
-        ...p,
-        totalScore: p.totalScore + (handScores[p.id] || 0)
-      }))
-    })
+                setHandHistory((currentHistory) => {
+                  const newEntry = {
+                    handNumber: (currentHistory?.length || 0) + 1,
+                    scores: handScores,
+                    timestamp: Date.now()
+                  }
+                  return currentHistory ? [...currentHistory, newEntry] : [newEntry]
+                })
 
-    setHandHistory((currentHistory) => {
-      if (!currentHistory) return [{
-        handNumber: 1,
-        scores: handScores,
-        timestamp: Date.now()
-      }]
-      return [
-        ...currentHistory,
-        {
-          handNumber: currentHistory.length + 1,
-          scores: handScores,
-          timestamp: Date.now()
-        }
-      ]
+                toast.success('Hand banked!')
+                
+                return currentPlayers.map(p => ({
+                  ...p,
+                  totalScore: p.totalScore + (handScores[p.id] || 0)
+                }))
+              })
+              
+              return null
+            })
+            return null
+          })
+          return null
+        })
+        return null
+      })
+      
+      const resetScopa: Record<string, number> = {}
+      players?.forEach(p => {
+        resetScopa[p.id] = 0
+      })
+      return resetScopa
     })
-
-    setHandCardsWinner(null)
-    setHandCoinsWinner(null)
-    setHandSettebelloWinner(null)
-    setHandPremieraWinner(null)
-    
-    const resetScopa: Record<string, number> = {}
-    players.forEach(p => {
-      resetScopa[p.id] = 0
-    })
-    setHandScopaScores(resetScopa)
-    
-    toast.success('Hand banked!')
   }
 
   const adjustScopa = (playerId: string, delta: number) => {
