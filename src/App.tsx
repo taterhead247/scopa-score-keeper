@@ -38,7 +38,7 @@ const SUIT_LABELS = {
 }
 
 export default function App() {
-  const [players, setPlayers] = useKV<Player[]>('scopa-players', [])
+  const [players, setPlayers] = useKV<Player[] | null>('scopa-players', null)
   const [handScopaScores, setHandScopaScores] = useKV<Record<string, number>>('scopa-hand-scopa', {})
   const [handCardsWinner, setHandCardsWinner] = useKV<string | null>('scopa-hand-cards', null)
   const [handCoinsWinner, setHandCoinsWinner] = useKV<string | null>('scopa-hand-coins', null)
@@ -49,7 +49,7 @@ export default function App() {
   const [playerCount, setPlayerCount] = useState(2)
   const [tempPlayerNames, setTempPlayerNames] = useState(['Player 1', 'Player 2'])
   
-  const gameStarted = players && players.length > 0
+  const gameStarted = players !== null && players !== undefined && players.length > 0
   
   const [premieraOpen, setPremieraOpen] = useState(false)
   const [premieraCards, setPremieraCards] = useState<Record<string, PremieraCard[]>>({})
@@ -79,7 +79,7 @@ export default function App() {
           setHandSettebelloWinner((currentSettebelloWinner) => {
             setHandPremieraWinner((currentPremieraWinner) => {
               setPlayers((currentPlayers) => {
-                if (!currentPlayers || currentPlayers.length === 0) return currentPlayers || []
+                if (!currentPlayers || currentPlayers.length === 0) return currentPlayers || null
                 
                 const handScores: Record<string, number> = { ...(currentScopa || {}) }
                 
@@ -134,7 +134,14 @@ export default function App() {
 
   const resetGame = () => {
     setPlayers((currentPlayers) => {
-      if (!currentPlayers) return []
+      if (!currentPlayers) return null
+      
+      const resetScopa: Record<string, number> = {}
+      currentPlayers.forEach(p => {
+        resetScopa[p.id] = 0
+      })
+      setHandScopaScores(resetScopa)
+      
       return currentPlayers.map(p => ({
         ...p,
         totalScore: 0
@@ -146,12 +153,6 @@ export default function App() {
     setHandSettebelloWinner(null)
     setHandPremieraWinner(null)
     setHandHistory([])
-    
-    const resetScopa: Record<string, number> = {}
-    players?.forEach(p => {
-      resetScopa[p.id] = 0
-    })
-    setHandScopaScores(resetScopa)
     
     toast.success('Game reset')
   }
