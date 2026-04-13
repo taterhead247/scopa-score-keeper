@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useKV } from '@github/spark/hooks'
+import { useLocalStorage } from '@/hooks/use-local-storage'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Plus, Minus, Calculator, ArrowsClockwise, PencilSimple } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 
@@ -29,6 +29,32 @@ type HandHistoryEntry = {
 }
 
 const CARD_VALUES = [7, 6, 1, 5, 4, 3, 2, 10, 9, 8]
+const PRIMIERA_POINTS: Record<number, number> = {
+  7: 21,
+  6: 18,
+  1: 16,
+  5: 15,
+  4: 14,
+  3: 13,
+  2: 12,
+  10: 10,
+  9: 10,
+  8: 10
+}
+const STORAGE_KEYS = [
+  'scopa-players',
+  'scopa-hand-scopa',
+  'scopa-hand-cards',
+  'scopa-hand-coins',
+  'scopa-hand-settebello',
+  'scopa-hand-premiera',
+  'scopa-hand-history',
+  'scopa-player-count',
+  'scopa-player-names',
+  'scopa-premiera-open',
+  'scopa-premiera-cards'
+]
+const CONFETTI_COLORS = ['#ef4444', '#f59e0b', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#a855f7']
 
 const SUIT_LABELS = {
   hearts: '♥',
@@ -38,23 +64,32 @@ const SUIT_LABELS = {
 }
 
 export default function App() {
-  const [players, setPlayers] = useKV<Player[]>('scopa-players', [])
-  const [handScopaScores, setHandScopaScores] = useKV<Record<string, number>>('scopa-hand-scopa', {})
-  const [handCardsWinner, setHandCardsWinner] = useKV<string | null>('scopa-hand-cards', null)
-  const [handCoinsWinner, setHandCoinsWinner] = useKV<string | null>('scopa-hand-coins', null)
-  const [handSettebelloWinner, setHandSettebelloWinner] = useKV<string | null>('scopa-hand-settebello', null)
-  const [handPremieraWinner, setHandPremieraWinner] = useKV<string | null>('scopa-hand-premiera', null)
-  const [handHistory, setHandHistory] = useKV<HandHistoryEntry[]>('scopa-hand-history', [])
+  const [players, setPlayers] = useLocalStorage<Player[]>('scopa-players', [])
+  const [handScopaScores, setHandScopaScores] = useLocalStorage<Record<string, number>>('scopa-hand-scopa', {})
+  const [handCardsWinner, setHandCardsWinner] = useLocalStorage<string | null>('scopa-hand-cards', null)
+  const [handCoinsWinner, setHandCoinsWinner] = useLocalStorage<string | null>('scopa-hand-coins', null)
+  const [handSettebelloWinner, setHandSettebelloWinner] = useLocalStorage<string | null>('scopa-hand-settebello', null)
+  const [handPremieraWinner, setHandPremieraWinner] = useLocalStorage<string | null>('scopa-hand-premiera', null)
+  const [handHistory, setHandHistory] = useLocalStorage<HandHistoryEntry[]>('scopa-hand-history', [])
   
-  const [playerCount, setPlayerCount] = useState(2)
-  const [tempPlayerNames, setTempPlayerNames] = useState(['Player 1', 'Player 2'])
+  const [playerCount, setPlayerCount] = useLocalStorage<number>('scopa-player-count', 2)
+  const [tempPlayerNames, setTempPlayerNames] = useLocalStorage<string[]>('scopa-player-names', ['Player 1', 'Player 2'])
   
   const gameStarted = (players && players.length > 0) || false
   
-  const [premieraOpen, setPremieraOpen] = useState(false)
-  const [premieraCards, setPremieraCards] = useState<Record<string, PremieraCard[]>>({})
+  const [premieraOpen, setPremieraOpen] = useLocalStorage<boolean>('scopa-premiera-open', false)
+  const [premieraCards, setPremieraCards] = useLocalStorage<Record<string, PremieraCard[]>>('scopa-premiera-cards', {})
   const [renameOpen, setRenameOpen] = useState(false)
   const [renameTempNames, setRenameTempNames] = useState<string[]>([])
+  const [confettiBurstId, setConfettiBurstId] = useState<number | null>(null)
+
+  const triggerConfetti = () => {
+    const burstId = Date.now()
+    setConfettiBurstId(burstId)
+    window.setTimeout(() => {
+      setConfettiBurstId((current) => (current === burstId ? null : current))
+    }, 2300)
+  }
 
   const startGame = () => {
     const newPlayers: Player[] = tempPlayerNames.map((name, idx) => ({
@@ -78,55 +113,52 @@ export default function App() {
   }
 
   const bankHand = () => {
-    setHandScopaScores((currentScopa) => {
-      setHandCardsWinner((currentCardsWinner) => {
-        setHandCoinsWinner((currentCoinsWinner) => {
-          setHandSettebelloWinner((currentSettebelloWinner) => {
-            setHandPremieraWinner((currentPremieraWinner) => {
-              setPlayers((currentPlayers) => {
-                if (!currentPlayers || currentPlayers.length === 0) return []
-                
-                const handScores: Record<string, number> = { ...(currentScopa || {}) }
-                
-                if (currentCardsWinner) handScores[currentCardsWinner] = (handScores[currentCardsWinner] || 0) + 1
-                if (currentCoinsWinner) handScores[currentCoinsWinner] = (handScores[currentCoinsWinner] || 0) + 1
-                if (currentSettebelloWinner) handScores[currentSettebelloWinner] = (handScores[currentSettebelloWinner] || 0) + 1
-                if (currentPremieraWinner) handScores[currentPremieraWinner] = (handScores[currentPremieraWinner] || 0) + 1
+    if (!players || players.length === 0) return
 
-                setHandHistory((currentHistory) => {
-                  const newEntry = {
-                    handNumber: (currentHistory?.length || 0) + 1,
-                    scores: handScores,
-                    timestamp: Date.now()
-                  }
-                  return currentHistory ? [...currentHistory, newEntry] : [newEntry]
-                })
-
-                toast.success('Hand banked!')
-                
-                return currentPlayers.map(p => ({
-                  ...p,
-                  totalScore: p.totalScore + (handScores[p.id] || 0)
-                }))
-              })
-              
-              return null
-            })
-            return null
-          })
-          return null
-        })
-        return null
-      })
-      
-      const resetScopa: Record<string, number> = {}
-      if (players) {
-        players.forEach(p => {
-          resetScopa[p.id] = 0
-        })
-      }
-      return resetScopa
+    const handScores: Record<string, number> = {}
+    players.forEach((p) => {
+      handScores[p.id] = handScopaScores?.[p.id] || 0
     })
+
+    if (handCardsWinner) handScores[handCardsWinner] = (handScores[handCardsWinner] || 0) + 1
+    if (handCoinsWinner) handScores[handCoinsWinner] = (handScores[handCoinsWinner] || 0) + 1
+    if (handSettebelloWinner) handScores[handSettebelloWinner] = (handScores[handSettebelloWinner] || 0) + 1
+    if (handPremieraWinner) handScores[handPremieraWinner] = (handScores[handPremieraWinner] || 0) + 1
+
+    const updatedPlayers = players.map((p) => ({
+      ...p,
+      totalScore: p.totalScore + (handScores[p.id] || 0)
+    }))
+    setPlayers(updatedPlayers)
+
+    setHandHistory((currentHistory) => {
+      const newEntry = {
+        handNumber: (currentHistory?.length || 0) + 1,
+        scores: handScores,
+        timestamp: Date.now()
+      }
+      return currentHistory ? [...currentHistory, newEntry] : [newEntry]
+    })
+
+    const resetScopa: Record<string, number> = {}
+    players.forEach((p) => {
+      resetScopa[p.id] = 0
+    })
+
+    setHandScopaScores(resetScopa)
+    setHandCardsWinner(null)
+    setHandCoinsWinner(null)
+    setHandSettebelloWinner(null)
+    setHandPremieraWinner(null)
+
+    const winners = updatedPlayers.filter((p) => p.totalScore > 11)
+    if (winners.length > 0) {
+      triggerConfetti()
+      const names = winners.map((p) => p.name).join(', ')
+      toast.success(`${names} won the game!`)
+    } else {
+      toast.success('Hand banked!')
+    }
   }
 
   const adjustScopa = (playerId: string, delta: number) => {
@@ -160,8 +192,31 @@ export default function App() {
     setHandPremieraWinner(null)
     setHandHistory([])
     setPremieraOpen(false)
+    setPremieraCards({})
     
     toast.success('Game reset')
+  }
+
+  const endGame = () => {
+    if (typeof window !== 'undefined') {
+      STORAGE_KEYS.forEach((key) => window.localStorage.removeItem(key))
+    }
+
+    setPlayers([])
+    setHandScopaScores({})
+    setHandCardsWinner(null)
+    setHandCoinsWinner(null)
+    setHandSettebelloWinner(null)
+    setHandPremieraWinner(null)
+    setHandHistory([])
+    setPlayerCount(2)
+    setTempPlayerNames(['Player 1', 'Player 2'])
+    setPremieraOpen(false)
+    setPremieraCards({})
+    setRenameOpen(false)
+    setRenameTempNames([])
+
+    toast.success('Game ended')
   }
 
   const openPremieraCalculator = () => {
@@ -195,8 +250,7 @@ export default function App() {
     
     return cards.reduce((sum, card) => {
       if (card.value === null) return sum
-      const valueIndex = CARD_VALUES.indexOf(card.value)
-      return sum + (valueIndex >= 0 ? valueIndex + 1 : 0)
+      return sum + (PRIMIERA_POINTS[card.value] || 0)
     }, 0)
   }
 
@@ -217,6 +271,10 @@ export default function App() {
     }))
 
     scores.sort((a, b) => b.score - a.score)
+    if (scores.length < 2) {
+      setPremieraOpen(false)
+      return
+    }
     
     if (scores[0].score > scores[1].score) {
       setHandPremieraWinner(scores[0].playerId)
@@ -307,6 +365,35 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-background p-4">
+      {confettiBurstId && (
+        <div className="pointer-events-none fixed inset-0 z-50 overflow-hidden" aria-hidden="true">
+          {Array.from({ length: 120 }).map((_, idx) => {
+            const left = `${Math.random() * 100}%`
+            const delay = `${Math.random() * 0.3}s`
+            const duration = `${1.6 + Math.random() * 1.1}s`
+            const color = CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)]
+            const size = 6 + Math.floor(Math.random() * 8)
+            const rotation = `${Math.floor(Math.random() * 360)}deg`
+
+            return (
+              <span
+                key={`${confettiBurstId}-${idx}`}
+                className="confetti-piece"
+                style={{
+                  left,
+                  animationDelay: delay,
+                  animationDuration: duration,
+                  backgroundColor: color,
+                  width: `${size}px`,
+                  height: `${Math.max(4, Math.floor(size * 0.45))}px`,
+                  transform: `rotate(${rotation})`
+                }}
+              />
+            )
+          })}
+        </div>
+      )}
+
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-3xl font-bold">Scopa Score Tracker</h1>
@@ -318,6 +405,9 @@ export default function App() {
             <Button variant="outline" size="sm" onClick={resetGame}>
               <ArrowsClockwise className="mr-2" />
               Reset
+            </Button>
+            <Button variant="destructive" size="sm" onClick={endGame}>
+              End Game
             </Button>
           </div>
         </div>
