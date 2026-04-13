@@ -1,9 +1,5 @@
-<<<<<<< HEAD
 import { useState } from 'react'
 import { useKV } from '@github/spark/hooks'
-=======
-import { Card } from '@/components/ui/card'
->>>>>>> 75880f3 (localStorage)
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -14,12 +10,6 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Plus, Minus, Calculator, ArrowsClockwise, PencilSimple } from '@phosphor-icons/react'
 import { toast } from 'sonner'
-<<<<<<< HEAD
-=======
-import { Plus, Minus, Calculator, ArrowsClockwise, Users, Check } from '@phosphor-icons/react'
-import { motion } from 'framer-motion'
-import { useLocalStorage } from '@/hooks/use-local-storage'
->>>>>>> 75880f3 (localStorage)
 
 type Player = {
   id: string
@@ -47,7 +37,6 @@ const SUIT_LABELS = {
   spades: '♠'
 }
 
-<<<<<<< HEAD
 export default function App() {
   const [players, setPlayers] = useKV<Player[]>('scopa-players', [])
   const [handScopaScores, setHandScopaScores] = useKV<Record<string, number>>('scopa-hand-scopa', {})
@@ -66,53 +55,6 @@ export default function App() {
   const [premieraCards, setPremieraCards] = useState<Record<string, PremieraCard[]>>({})
   const [renameOpen, setRenameOpen] = useState(false)
   const [renameTempNames, setRenameTempNames] = useState<string[]>([])
-=======
-const createEmptyPremieraCards = (playerIds: string[]): Record<string, PremieraCard[]> =>
-  Object.fromEntries(
-    playerIds.map((playerId) => [
-      playerId,
-      [
-        { suit: 'hearts', value: null },
-        { suit: 'diamonds', value: null },
-        { suit: 'clubs', value: null },
-        { suit: 'spades', value: null }
-      ]
-    ])
-  )
-
-const createEmptyScopaScores = (playerIds: string[]): Record<string, number> =>
-  Object.fromEntries(playerIds.map((playerId) => [playerId, 0]))
-
-function AnimatedScore({ value }: { value: number }) {
-  return (
-    <motion.span
-      key={value}
-      initial={{ scale: 1.3, color: 'oklch(0.70 0.18 25)' }}
-      animate={{ scale: 1, color: 'oklch(0.25 0.01 270)' }}
-      transition={{ duration: 0.3, ease: 'easeOut' }}
-      className="text-5xl font-bold"
-    >
-      {value}
-    </motion.span>
-  )
-}
-
-function App() {
-  const [players, setPlayers] = useLocalStorage<Player[]>('scopa-players', [])
-  const [gameStarted, setGameStarted] = useLocalStorage<boolean>('scopa-game-started', false)
-
-  const [handCardsWinner, setHandCardsWinner] = useLocalStorage<string | null>('scopa-hand-cards-winner', null)
-  const [handCoinsWinner, setHandCoinsWinner] = useLocalStorage<string | null>('scopa-hand-coins-winner', null)
-  const [handSettebelloWinner, setHandSettebelloWinner] = useLocalStorage<string | null>('scopa-hand-settebello-winner', null)
-  const [handPremieraWinner, setHandPremieraWinner] = useLocalStorage<string | null>('scopa-hand-premiera-winner', null)
-  const [handScopaScores, setHandScopaScores] = useLocalStorage<Record<string, number>>('scopa-hand-scopa-scores', {})
-
-  const [premieraOpen, setPremieraOpen] = useLocalStorage<boolean>('scopa-premiera-open', false)
-  const [premieraCards, setPremieraCards] = useLocalStorage<Record<string, PremieraCard[]>>('scopa-premiera-cards', {})
-
-  const [playerCount, setPlayerCount] = useLocalStorage<number>('scopa-player-count', 2)
-  const [tempPlayerNames, setTempPlayerNames] = useLocalStorage<string[]>('scopa-temp-player-names', ['Player 1', 'Player 2'])
->>>>>>> 75880f3 (localStorage)
 
   const startGame = () => {
     const newPlayers: Player[] = tempPlayerNames.map((name, idx) => ({
@@ -120,16 +62,19 @@ function App() {
       name: name || `Player ${idx + 1}`,
       totalScore: 0
     }))
-    const playerIds = newPlayers.map((player) => player.id)
-    
     setPlayers(newPlayers)
-<<<<<<< HEAD
-    
+
     const initialScopa: Record<string, number> = {}
     newPlayers.forEach(p => {
       initialScopa[p.id] = 0
     })
     setHandScopaScores(initialScopa)
+    setHandCardsWinner(null)
+    setHandCoinsWinner(null)
+    setHandSettebelloWinner(null)
+    setHandPremieraWinner(null)
+    setHandHistory([])
+    setPremieraOpen(false)
   }
 
   const bankHand = () => {
@@ -182,53 +127,6 @@ function App() {
       }
       return resetScopa
     })
-=======
-    setGameStarted(true)
-    setPlayerCount(newPlayers.length)
-    
-    setHandCardsWinner(null)
-    setHandCoinsWinner(null)
-    setHandSettebelloWinner(null)
-    setHandPremieraWinner(null)
-    setHandScopaScores(createEmptyScopaScores(playerIds))
-    setPremieraCards(createEmptyPremieraCards(playerIds))
-    setPremieraOpen(false)
-    
-    toast.success('Game started!')
-  }
-
-  const bankHand = () => {
-    let handScores: Record<string, number> = {}
-    
-    players.forEach(p => {
-      handScores[p.id] = 0
-    })
-
-    if (handCardsWinner) handScores[handCardsWinner] += 1
-    if (handCoinsWinner) handScores[handCoinsWinner] += 1
-    if (handSettebelloWinner) handScores[handSettebelloWinner] += 1
-    if (handPremieraWinner) handScores[handPremieraWinner] += 1
-    
-    Object.entries(handScopaScores).forEach(([playerId, scopaCount]) => {
-      handScores[playerId] += scopaCount
-    })
-
-    setPlayers((currentPlayers) => {
-      return currentPlayers.map(p => ({
-        ...p,
-        totalScore: p.totalScore + (handScores[p.id] || 0)
-      }))
-    })
-
-    setHandCardsWinner(null)
-    setHandCoinsWinner(null)
-    setHandSettebelloWinner(null)
-    setHandPremieraWinner(null)
-    
-    setHandScopaScores(createEmptyScopaScores(players.map((player) => player.id)))
-
-    toast.success('Hand banked!')
->>>>>>> 75880f3 (localStorage)
   }
 
   const adjustScopa = (playerId: string, delta: number) => {
@@ -243,7 +141,6 @@ function App() {
 
   const resetGame = () => {
     setPlayers((currentPlayers) => {
-<<<<<<< HEAD
       if (!currentPlayers || currentPlayers.length === 0) return []
       
       const resetScopa: Record<string, number> = {}
@@ -251,9 +148,6 @@ function App() {
         resetScopa[p.id] = 0
       })
       setHandScopaScores(resetScopa)
-      
-=======
->>>>>>> 75880f3 (localStorage)
       return currentPlayers.map(p => ({
         ...p,
         totalScore: 0
@@ -264,20 +158,13 @@ function App() {
     setHandCoinsWinner(null)
     setHandSettebelloWinner(null)
     setHandPremieraWinner(null)
-<<<<<<< HEAD
     setHandHistory([])
-=======
-    setPremieraCards(createEmptyPremieraCards(players.map((player) => player.id)))
     setPremieraOpen(false)
-    
-    setHandScopaScores(createEmptyScopaScores(players.map((player) => player.id)))
->>>>>>> 75880f3 (localStorage)
     
     toast.success('Game reset')
   }
 
   const openPremieraCalculator = () => {
-<<<<<<< HEAD
     if (!players || players.length === 0) return
     
     const initialCards: Record<string, PremieraCard[]> = {}
@@ -290,14 +177,6 @@ function App() {
       ]
     })
     setPremieraCards(initialCards)
-=======
-    const hasCardsForAllPlayers = players.every((player) => premieraCards[player.id]?.length === 4)
-
-    if (!hasCardsForAllPlayers) {
-      setPremieraCards(createEmptyPremieraCards(players.map((player) => player.id)))
-    }
-
->>>>>>> 75880f3 (localStorage)
     setPremieraOpen(true)
   }
 
@@ -322,10 +201,7 @@ function App() {
   }
 
   const allPremieraCardsSelected = (): boolean => {
-<<<<<<< HEAD
     if (!players || players.length === 0) return false
-=======
->>>>>>> 75880f3 (localStorage)
     return players.every(p => {
       const cards = premieraCards[p.id]
       return cards && cards.every(c => c.value !== null)
@@ -333,11 +209,7 @@ function App() {
   }
 
   const awardPremiera = () => {
-<<<<<<< HEAD
     if (!players || players.length === 0) return
-    
-=======
->>>>>>> 75880f3 (localStorage)
     const scores: Array<{ playerId: string, score: number, name: string }> = players.map(p => ({
       playerId: p.id,
       score: calculatePremieraForPlayer(p.id),
@@ -443,41 +315,9 @@ function App() {
               <PencilSimple className="mr-2" />
               Rename
             </Button>
-<<<<<<< HEAD
             <Button variant="outline" size="sm" onClick={resetGame}>
               <ArrowsClockwise className="mr-2" />
               Reset
-=======
-
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <ArrowsClockwise className="mr-2" />
-                  Reset Game
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Reset Game?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This will clear all scores and start a new game. Player names will be kept.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={resetGame}>Reset</AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-
-            <Button variant="outline" size="sm" onClick={() => {
-              setTempPlayerNames(players.map((player) => player.name))
-              setPlayerCount(players.length)
-              setGameStarted(false)
-            }}>
-              <Users className="mr-2" />
-              Change Players
->>>>>>> 75880f3 (localStorage)
             </Button>
           </div>
         </div>
