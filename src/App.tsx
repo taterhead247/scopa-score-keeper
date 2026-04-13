@@ -51,17 +51,16 @@ function AnimatedScore({ value }: { value: number }) {
 
 function App() {
   const [players, setPlayers] = useKV<Player[]>('scopa-players', [])
-  const [gameStarted, setGameStarted] = useState(players && players.length > 0)
-  
-  const [handCardsWinner, setHandCardsWinner] = useState<string | null>(null)
-  const [handCoinsWinner, setHandCoinsWinner] = useState<string | null>(null)
-  const [handSettebelloWinner, setHandSettebelloWinner] = useState<string | null>(null)
-  const [handPremieraWinner, setHandPremieraWinner] = useState<string | null>(null)
-  const [handScopaScores, setHandScopaScores] = useState<Record<string, number>>({})
+  const [handCardsWinner, setHandCardsWinner] = useKV<string | null>('scopa-hand-cards-winner', null)
+  const [handCoinsWinner, setHandCoinsWinner] = useKV<string | null>('scopa-hand-coins-winner', null)
+  const [handSettebelloWinner, setHandSettebelloWinner] = useKV<string | null>('scopa-hand-settebello-winner', null)
+  const [handPremieraWinner, setHandPremieraWinner] = useKV<string | null>('scopa-hand-premiera-winner', null)
+  const [handScopaScores, setHandScopaScores] = useKV<Record<string, number>>('scopa-hand-scopa-scores', {})
 
   const [premieraOpen, setPremieraOpen] = useState(false)
   const [premieraCards, setPremieraCards] = useState<Record<string, PremieraCard[]>>({})
 
+  const gameStarted = players && players.length > 0
   const [setupOpen, setSetupOpen] = useState(!gameStarted)
   const [playerCount, setPlayerCount] = useState<number>(2)
   const [tempPlayerNames, setTempPlayerNames] = useState<string[]>(['Player 1', 'Player 2'])
@@ -74,7 +73,6 @@ function App() {
     }))
     
     setPlayers(newPlayers)
-    setGameStarted(true)
     setSetupOpen(false)
     
     const initialScopa: Record<string, number> = {}
@@ -100,7 +98,7 @@ function App() {
     if (handSettebelloWinner) handScores[handSettebelloWinner] += 1
     if (handPremieraWinner) handScores[handPremieraWinner] += 1
     
-    Object.entries(handScopaScores).forEach(([playerId, scopaCount]) => {
+    Object.entries(handScopaScores || {}).forEach(([playerId, scopaCount]) => {
       handScores[playerId] += scopaCount
     })
 
@@ -128,8 +126,8 @@ function App() {
 
   const adjustScopa = (playerId: string, delta: number) => {
     setHandScopaScores(prev => ({
-      ...prev,
-      [playerId]: Math.max(0, (prev[playerId] || 0) + delta)
+      ...(prev || {}),
+      [playerId]: Math.max(0, ((prev || {})[playerId] || 0) + delta)
     }))
   }
 
@@ -285,8 +283,18 @@ function App() {
     if (handCoinsWinner === playerId) total += 1
     if (handSettebelloWinner === playerId) total += 1
     if (handPremieraWinner === playerId) total += 1
-    total += handScopaScores[playerId] || 0
+    total += (handScopaScores || {})[playerId] || 0
     return total
+  }
+  
+  const changePlayers = () => {
+    setPlayers([])
+    setHandCardsWinner(null)
+    setHandCoinsWinner(null)
+    setHandSettebelloWinner(null)
+    setHandPremieraWinner(null)
+    setHandScopaScores({})
+    setSetupOpen(true)
   }
 
   return (
@@ -321,7 +329,7 @@ function App() {
               </AlertDialogContent>
             </AlertDialog>
 
-            <Button variant="outline" size="sm" onClick={() => { setGameStarted(false); setSetupOpen(true); }}>
+            <Button variant="outline" size="sm" onClick={changePlayers}>
               <Users className="mr-2" />
               Change Players
             </Button>
@@ -449,7 +457,7 @@ function App() {
                         <Minus />
                       </Button>
                       <span className="text-xl font-semibold w-8 text-center">
-                        {handScopaScores[player.id] || 0}
+                        {(handScopaScores || {})[player.id] || 0}
                       </span>
                       <Button 
                         size="sm" 
