@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
@@ -19,6 +20,12 @@ type Player = {
 type PremieraCard = {
   suit: 'hearts' | 'diamonds' | 'clubs' | 'spades'
   value: number | null
+}
+
+type HandHistoryEntry = {
+  handNumber: number
+  scores: Record<string, number>
+  timestamp: number
 }
 
 const CARD_VALUES = [7, 6, 1, 5, 4, 3, 2, 10, 9, 8]
@@ -37,6 +44,7 @@ export default function App() {
   const [handCoinsWinner, setHandCoinsWinner] = useKV<string | null>('scopa-hand-coins', null)
   const [handSettebelloWinner, setHandSettebelloWinner] = useKV<string | null>('scopa-hand-settebello', null)
   const [handPremieraWinner, setHandPremieraWinner] = useKV<string | null>('scopa-hand-premiera', null)
+  const [handHistory, setHandHistory] = useKV<HandHistoryEntry[]>('scopa-hand-history', [])
   
   const [playerCount, setPlayerCount] = useState(2)
   const [tempPlayerNames, setTempPlayerNames] = useState(['Player 1', 'Player 2'])
@@ -82,6 +90,22 @@ export default function App() {
       }))
     })
 
+    setHandHistory((currentHistory) => {
+      if (!currentHistory) return [{
+        handNumber: 1,
+        scores: handScores,
+        timestamp: Date.now()
+      }]
+      return [
+        ...currentHistory,
+        {
+          handNumber: currentHistory.length + 1,
+          scores: handScores,
+          timestamp: Date.now()
+        }
+      ]
+    })
+
     setHandCardsWinner(null)
     setHandCoinsWinner(null)
     setHandSettebelloWinner(null)
@@ -119,6 +143,7 @@ export default function App() {
     setHandCoinsWinner(null)
     setHandSettebelloWinner(null)
     setHandPremieraWinner(null)
+    setHandHistory([])
     
     const resetScopa: Record<string, number> = {}
     players?.forEach(p => {
@@ -274,7 +299,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-background p-4">
       <div className="max-w-4xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-4">
           <h1 className="text-3xl font-bold">Scopa Score Tracker</h1>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={openRenameDialog}>
@@ -288,110 +313,141 @@ export default function App() {
           </div>
         </div>
 
-        <div className="grid gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mb-6">
           {players?.map(player => (
-            <Card key={player.id} className="p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-xl font-bold">{player.name}</h2>
-                <div className="text-3xl font-bold text-primary">{player.totalScore}</div>
-              </div>
-              
-              <div className="flex items-center gap-2">
-                <Label className="text-sm">Scopa:</Label>
-                <Button 
-                  size="sm" 
-                  variant="outline"
-                  onClick={() => adjustScopa(player.id, -1)}
-                >
-                  <Minus />
-                </Button>
-                <span className="w-8 text-center font-semibold">{handScopaScores?.[player.id] || 0}</span>
-                <Button 
-                  size="sm" 
-                  variant="outline"
-                  onClick={() => adjustScopa(player.id, 1)}
-                >
-                  <Plus />
-                </Button>
-              </div>
+            <Card key={player.id} className="p-3">
+              <div className="text-sm font-medium mb-1">{player.name}</div>
+              <div className="text-2xl font-bold text-primary">{player.totalScore}</div>
             </Card>
           ))}
         </div>
 
-        <Card className="p-4 mb-6">
+        <Card className="p-4 mb-4">
           <h3 className="font-bold mb-3">Hand Awards (1 point each)</h3>
-          <div className="grid gap-3">
+          <div className="grid gap-4">
             <div>
-              <Label className="text-sm mb-2 block">Cards (Most cards)</Label>
-              <Select value={handCardsWinner || ''} onValueChange={setHandCardsWinner}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select winner" />
-                </SelectTrigger>
-                <SelectContent>
+              <Label className="text-sm mb-2 block font-semibold">Cards (Most cards)</Label>
+              <RadioGroup value={handCardsWinner || ''} onValueChange={setHandCardsWinner}>
+                <div className="grid gap-2">
                   {players?.map(p => (
-                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                    <div key={p.id} className="flex items-center space-x-2">
+                      <RadioGroupItem value={p.id} id={`cards-${p.id}`} />
+                      <Label htmlFor={`cards-${p.id}`} className="cursor-pointer flex-1">{p.name}</Label>
+                    </div>
                   ))}
-                </SelectContent>
-              </Select>
+                </div>
+              </RadioGroup>
             </div>
 
             <div>
-              <Label className="text-sm mb-2 block">Coins (Most diamonds)</Label>
-              <Select value={handCoinsWinner || ''} onValueChange={setHandCoinsWinner}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select winner" />
-                </SelectTrigger>
-                <SelectContent>
+              <Label className="text-sm mb-2 block font-semibold">Coins (Most diamonds)</Label>
+              <RadioGroup value={handCoinsWinner || ''} onValueChange={setHandCoinsWinner}>
+                <div className="grid gap-2">
                   {players?.map(p => (
-                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                    <div key={p.id} className="flex items-center space-x-2">
+                      <RadioGroupItem value={p.id} id={`coins-${p.id}`} />
+                      <Label htmlFor={`coins-${p.id}`} className="cursor-pointer flex-1">{p.name}</Label>
+                    </div>
                   ))}
-                </SelectContent>
-              </Select>
+                </div>
+              </RadioGroup>
             </div>
 
             <div>
-              <Label className="text-sm mb-2 block">Settebello (7 of diamonds)</Label>
-              <Select value={handSettebelloWinner || ''} onValueChange={setHandSettebelloWinner}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select winner" />
-                </SelectTrigger>
-                <SelectContent>
+              <Label className="text-sm mb-2 block font-semibold">Settebello (7 of diamonds)</Label>
+              <RadioGroup value={handSettebelloWinner || ''} onValueChange={setHandSettebelloWinner}>
+                <div className="grid gap-2">
                   {players?.map(p => (
-                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                    <div key={p.id} className="flex items-center space-x-2">
+                      <RadioGroupItem value={p.id} id={`settebello-${p.id}`} />
+                      <Label htmlFor={`settebello-${p.id}`} className="cursor-pointer flex-1">{p.name}</Label>
+                    </div>
                   ))}
-                </SelectContent>
-              </Select>
+                </div>
+              </RadioGroup>
             </div>
 
             <div>
-              <Label className="text-sm mb-2 block">Primiera</Label>
-              <div className="flex gap-2">
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-sm font-semibold">Primiera</Label>
                 <Button 
                   variant="outline" 
-                  className="flex-1"
+                  size="sm"
                   onClick={openPremieraCalculator}
                 >
                   <Calculator className="mr-2" />
                   Calculate
                 </Button>
-                <Select value={handPremieraWinner || ''} onValueChange={setHandPremieraWinner}>
-                  <SelectTrigger className="flex-1">
-                    <SelectValue placeholder="Select winner" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {players?.map(p => (
-                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              </div>
+              <RadioGroup value={handPremieraWinner || ''} onValueChange={setHandPremieraWinner}>
+                <div className="grid gap-2">
+                  {players?.map(p => (
+                    <div key={p.id} className="flex items-center space-x-2">
+                      <RadioGroupItem value={p.id} id={`premiera-${p.id}`} />
+                      <Label htmlFor={`premiera-${p.id}`} className="cursor-pointer flex-1">{p.name}</Label>
+                    </div>
+                  ))}
+                </div>
+              </RadioGroup>
+            </div>
+
+            <div>
+              <Label className="text-sm mb-3 block font-semibold">Scopa (per player)</Label>
+              <div className="grid gap-3">
+                {players?.map(player => (
+                  <div key={player.id} className="flex items-center justify-between">
+                    <Label className="text-sm">{player.name}:</Label>
+                    <div className="flex items-center gap-2">
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => adjustScopa(player.id, -1)}
+                      >
+                        <Minus />
+                      </Button>
+                      <span className="w-8 text-center font-semibold">{handScopaScores?.[player.id] || 0}</span>
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => adjustScopa(player.id, 1)}
+                      >
+                        <Plus />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
         </Card>
 
-        <Button onClick={bankHand} size="lg" className="w-full">
+        <Button onClick={bankHand} size="lg" className="w-full mb-6">
           Bank Hand & Add to Scores
         </Button>
+
+        {handHistory && handHistory.length > 0 && (
+          <Card className="p-4">
+            <h3 className="font-bold mb-3">Hand History</h3>
+            <div className="space-y-2">
+              {handHistory.slice().reverse().map((entry) => (
+                <div key={entry.handNumber} className="flex items-start gap-3 py-2 border-b border-border last:border-0">
+                  <div className="font-semibold text-sm min-w-[60px]">Hand {entry.handNumber}</div>
+                  <div className="flex-1 text-sm">
+                    {players?.map(p => {
+                      const points = entry.scores[p.id] || 0
+                      if (points === 0) return null
+                      return (
+                        <div key={p.id} className="text-muted-foreground">
+                          {p.name}: <span className="font-semibold text-foreground">{points} {points === 1 ? 'pt' : 'pts'}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
 
         <Sheet open={premieraOpen} onOpenChange={setPremieraOpen}>
           <SheetContent side="bottom" className="h-[90vh]">
