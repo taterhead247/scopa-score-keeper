@@ -6,7 +6,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-import { Plus, Minus, Calculator, ArrowsClockwise } from '@phosphor-icons/react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Plus, Minus, Calculator, ArrowsClockwise, PencilSimple } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 
 type Player = {
@@ -44,6 +45,8 @@ export default function App() {
   
   const [premieraOpen, setPremieraOpen] = useState(false)
   const [premieraCards, setPremieraCards] = useState<Record<string, PremieraCard[]>>({})
+  const [renameOpen, setRenameOpen] = useState(false)
+  const [renameTempNames, setRenameTempNames] = useState<string[]>([])
 
   const startGame = () => {
     const newPlayers: Player[] = tempPlayerNames.map((name, idx) => ({
@@ -199,6 +202,24 @@ export default function App() {
     setTempPlayerNames(newNames)
   }
 
+  const openRenameDialog = () => {
+    if (!players) return
+    setRenameTempNames(players.map(p => p.name))
+    setRenameOpen(true)
+  }
+
+  const saveRenamedPlayers = () => {
+    setPlayers((currentPlayers) => {
+      if (!currentPlayers) return []
+      return currentPlayers.map((p, idx) => ({
+        ...p,
+        name: renameTempNames[idx] || p.name
+      }))
+    })
+    setRenameOpen(false)
+    toast.success('Player names updated')
+  }
+
   if (!gameStarted) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -230,6 +251,7 @@ export default function App() {
                     key={idx}
                     placeholder={`Player ${idx + 1}`}
                     value={name}
+                    onFocus={(e) => e.target.select()}
                     onChange={(e) => {
                       const newNames = [...tempPlayerNames]
                       newNames[idx] = e.target.value
@@ -254,10 +276,16 @@ export default function App() {
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-3xl font-bold">Scopa Score Tracker</h1>
-          <Button variant="outline" size="sm" onClick={resetGame}>
-            <ArrowsClockwise className="mr-2" />
-            Reset
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={openRenameDialog}>
+              <PencilSimple className="mr-2" />
+              Rename
+            </Button>
+            <Button variant="outline" size="sm" onClick={resetGame}>
+              <ArrowsClockwise className="mr-2" />
+              Reset
+            </Button>
+          </div>
         </div>
 
         <div className="grid gap-4 mb-6">
@@ -422,6 +450,38 @@ export default function App() {
             </div>
           </SheetContent>
         </Sheet>
+
+        <Dialog open={renameOpen} onOpenChange={setRenameOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Rename Players</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 mt-4">
+              {renameTempNames.map((name, idx) => (
+                <div key={idx}>
+                  <Label className="text-sm mb-2 block">Player {idx + 1}</Label>
+                  <Input
+                    value={name}
+                    onFocus={(e) => e.target.select()}
+                    onChange={(e) => {
+                      const newNames = [...renameTempNames]
+                      newNames[idx] = e.target.value
+                      setRenameTempNames(newNames)
+                    }}
+                  />
+                </div>
+              ))}
+              <div className="flex gap-3 pt-3">
+                <Button onClick={saveRenamedPlayers} className="flex-1">
+                  Save Names
+                </Button>
+                <Button variant="outline" onClick={() => setRenameOpen(false)}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   )
