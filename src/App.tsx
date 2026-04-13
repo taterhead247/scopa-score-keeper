@@ -30,16 +30,17 @@ const SUIT_LABELS = {
 }
 
 export default function App() {
-  const [gameStarted, setGameStarted] = useState(false)
+  const [players, setPlayers] = useKV<Player[]>('scopa-players', [])
+  const [handScopaScores, setHandScopaScores] = useKV<Record<string, number>>('scopa-hand-scopa', {})
+  const [handCardsWinner, setHandCardsWinner] = useKV<string | null>('scopa-hand-cards', null)
+  const [handCoinsWinner, setHandCoinsWinner] = useKV<string | null>('scopa-hand-coins', null)
+  const [handSettebelloWinner, setHandSettebelloWinner] = useKV<string | null>('scopa-hand-settebello', null)
+  const [handPremieraWinner, setHandPremieraWinner] = useKV<string | null>('scopa-hand-premiera', null)
+  
   const [playerCount, setPlayerCount] = useState(2)
   const [tempPlayerNames, setTempPlayerNames] = useState(['Player 1', 'Player 2'])
-  const [players, setPlayers] = useKV<Player[]>('scopa-players', [])
   
-  const [handScopaScores, setHandScopaScores] = useState<Record<string, number>>({})
-  const [handCardsWinner, setHandCardsWinner] = useState<string | null>(null)
-  const [handCoinsWinner, setHandCoinsWinner] = useState<string | null>(null)
-  const [handSettebelloWinner, setHandSettebelloWinner] = useState<string | null>(null)
-  const [handPremieraWinner, setHandPremieraWinner] = useState<string | null>(null)
+  const gameStarted = players && players.length > 0
   
   const [premieraOpen, setPremieraOpen] = useState(false)
   const [premieraCards, setPremieraCards] = useState<Record<string, PremieraCard[]>>({})
@@ -58,8 +59,6 @@ export default function App() {
       initialScopa[p.id] = 0
     })
     setHandScopaScores(initialScopa)
-    
-    setGameStarted(true)
   }
 
   const bankHand = () => {
@@ -95,10 +94,13 @@ export default function App() {
   }
 
   const adjustScopa = (playerId: string, delta: number) => {
-    setHandScopaScores(prev => ({
-      ...prev,
-      [playerId]: Math.max(0, (prev[playerId] || 0) + delta)
-    }))
+    setHandScopaScores(prev => {
+      if (!prev) return { [playerId]: Math.max(0, delta) }
+      return {
+        ...prev,
+        [playerId]: Math.max(0, (prev[playerId] || 0) + delta)
+      }
+    })
   }
 
   const resetGame = () => {
@@ -275,7 +277,7 @@ export default function App() {
                 >
                   <Minus />
                 </Button>
-                <span className="w-8 text-center font-semibold">{handScopaScores[player.id] || 0}</span>
+                <span className="w-8 text-center font-semibold">{handScopaScores?.[player.id] || 0}</span>
                 <Button 
                   size="sm" 
                   variant="outline"
