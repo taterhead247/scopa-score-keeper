@@ -38,7 +38,7 @@ const SUIT_LABELS = {
 }
 
 export default function App() {
-  const [players, setPlayers] = useKV<Player[] | null>('scopa-players', null)
+  const [players, setPlayers] = useKV<Player[]>('scopa-players', [])
   const [handScopaScores, setHandScopaScores] = useKV<Record<string, number>>('scopa-hand-scopa', {})
   const [handCardsWinner, setHandCardsWinner] = useKV<string | null>('scopa-hand-cards', null)
   const [handCoinsWinner, setHandCoinsWinner] = useKV<string | null>('scopa-hand-coins', null)
@@ -49,7 +49,7 @@ export default function App() {
   const [playerCount, setPlayerCount] = useState(2)
   const [tempPlayerNames, setTempPlayerNames] = useState(['Player 1', 'Player 2'])
   
-  const gameStarted = players !== null && players !== undefined && players.length > 0
+  const gameStarted = (players && players.length > 0) || false
   
   const [premieraOpen, setPremieraOpen] = useState(false)
   const [premieraCards, setPremieraCards] = useState<Record<string, PremieraCard[]>>({})
@@ -79,7 +79,7 @@ export default function App() {
           setHandSettebelloWinner((currentSettebelloWinner) => {
             setHandPremieraWinner((currentPremieraWinner) => {
               setPlayers((currentPlayers) => {
-                if (!currentPlayers || currentPlayers.length === 0) return currentPlayers || null
+                if (!currentPlayers || currentPlayers.length === 0) return []
                 
                 const handScores: Record<string, number> = { ...(currentScopa || {}) }
                 
@@ -115,9 +115,11 @@ export default function App() {
       })
       
       const resetScopa: Record<string, number> = {}
-      players?.forEach(p => {
-        resetScopa[p.id] = 0
-      })
+      if (players) {
+        players.forEach(p => {
+          resetScopa[p.id] = 0
+        })
+      }
       return resetScopa
     })
   }
@@ -134,7 +136,7 @@ export default function App() {
 
   const resetGame = () => {
     setPlayers((currentPlayers) => {
-      if (!currentPlayers) return null
+      if (!currentPlayers || currentPlayers.length === 0) return []
       
       const resetScopa: Record<string, number> = {}
       currentPlayers.forEach(p => {
@@ -158,7 +160,7 @@ export default function App() {
   }
 
   const openPremieraCalculator = () => {
-    if (!players) return
+    if (!players || players.length === 0) return
     
     const initialCards: Record<string, PremieraCard[]> = {}
     players.forEach(p => {
@@ -194,7 +196,7 @@ export default function App() {
   }
 
   const allPremieraCardsSelected = (): boolean => {
-    if (!players) return false
+    if (!players || players.length === 0) return false
     return players.every(p => {
       const cards = premieraCards[p.id]
       return cards && cards.every(c => c.value !== null)
@@ -202,7 +204,7 @@ export default function App() {
   }
 
   const awardPremiera = () => {
-    if (!players) return
+    if (!players || players.length === 0) return
     
     const scores: Array<{ playerId: string, score: number, name: string }> = players.map(p => ({
       playerId: p.id,
