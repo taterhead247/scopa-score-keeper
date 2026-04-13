@@ -1,19 +1,13 @@
 import { useState } from 'react'
 import { useKV } from '@github/spark/hooks'
-import { Button } from '@/components/ui/but
 import { Button } from '@/components/ui/button'
-import { Separator } from '@/components/ui/se
+import { Card } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Plus, Minus, Calculator, ArrowsClock
-
-  id: string
-  totalScore: number
-
-  suit: 'hearts' | 'diamonds' | 'clubs' | 'spades'
-}
-const CARD_VALUES = [7, 6, 1, 5, 4, 3, 2, 10, 9, 8]
-const SUIT_LABELS = {
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { Plus, Minus, Calculator, ArrowsClockwise } from '@phosphor-icons/react'
+import { toast } from 'sonner'
 
 type Player = {
   id: string
@@ -32,110 +26,86 @@ const SUIT_LABELS = {
   hearts: '♥',
   diamonds: '♦',
   clubs: '♣',
-    const new
- 
+  spades: '♠'
+}
 
+export default function App() {
+  const [gameStarted, setGameStarted] = useState(false)
+  const [playerCount, setPlayerCount] = useState(2)
+  const [tempPlayerNames, setTempPlayerNames] = useState(['Player 1', 'Player 2'])
+  const [players, setPlayers] = useKV<Player[]>('scopa-players', [])
+  
+  const [handScopaScores, setHandScopaScores] = useState<Record<string, number>>({})
+  const [handCardsWinner, setHandCardsWinner] = useState<string | null>(null)
+  const [handCoinsWinner, setHandCoinsWinner] = useState<string | null>(null)
+  const [handSettebelloWinner, setHandSettebelloWinner] = useState<string | null>(null)
+  const [handPremieraWinner, setHandPremieraWinner] = useState<string | null>(null)
+  
+  const [premieraOpen, setPremieraOpen] = useState(false)
+  const [premieraCards, setPremieraCards] = useState<Record<string, PremieraCard[]>>({})
+
+  const startGame = () => {
+    const newPlayers: Player[] = tempPlayerNames.map((name, idx) => ({
+      id: `player-${idx}`,
+      name: name || `Player ${idx + 1}`,
+      totalScore: 0
+    }))
+    
     setPlayers(newPlayers)
     
-    newPlayers.f
+    const initialScopa: Record<string, number> = {}
+    newPlayers.forEach(p => {
+      initialScopa[p.id] = 0
     })
+    setHandScopaScores(initialScopa)
     
+    setGameStarted(true)
   }
+
   const bankHand = () => {
-
+    if (!players || players.length === 0) return
     
-      handSco
+    const handScores: Record<string, number> = { ...handScopaScores }
+    
+    if (handCardsWinner) handScores[handCardsWinner] = (handScores[handCardsWinner] || 0) + 1
+    if (handCoinsWinner) handScores[handCoinsWinner] = (handScores[handCoinsWinner] || 0) + 1
+    if (handSettebelloWinner) handScores[handSettebelloWinner] = (handScores[handSettebelloWinner] || 0) + 1
+    if (handPremieraWinner) handScores[handPremieraWinner] = (handScores[handPremieraWinner] || 0) + 1
 
-   
- 
-
-    })
     setPlayers((currentPlayers) => {
-      return currentPlayers.map(p => ({
-        totalScore: p.totalScore + (handScores[p.id] || 0)
-    })
-    setHandCardsWinner(null)
-    setHandSettebelloWinner(null)
-
-    players.forEach(p => {
-    })
-
-  }
-  const adjustScopa = (playerId: string, delta: number) =>
-      ...prev,
-    }))
-
-    setPlayers((currentPlay
-      return currentPlayers.map(p => ({
-        totalScore: 0
-    })
-    setHandCardsWin
-    set
-    
-    players?.forEach(p => 
-    })
-    
-  }
-  const openPremieraCalculato
-    
-    pl
-        { suit: 'hearts', value: nul
-    
-      ]
-   
-
-  const updatePremieraCard
-      ...prev,
-
-    }))
-
-    const cards = premiera
-    
-      
-
-  }
-  const allPremieraCardsSelected = (): boolean => {
-    return players.every(p => {
-      return cards && cards.every(c => c.value !== null)
-  }
-  const awardPremiera = () => {
-    
-      
-
-
-    
+      if (!currentPlayers) return []
       return currentPlayers.map(p => ({
         ...p,
-    }
-    setPr
+        totalScore: p.totalScore + (handScores[p.id] || 0)
+      }))
+    })
 
-
-      tempPlayerNames[i] || 
-    setTempPlayerNames(newNa
-
-    return (
+    setHandCardsWinner(null)
+    setHandCoinsWinner(null)
+    setHandSettebelloWinner(null)
+    setHandPremieraWinner(null)
     
-          
-            <div>
-              <div classNa
-      
-                    variant={playe
+    const resetScopa: Record<string, number> = {}
+    players.forEach(p => {
+      resetScopa[p.id] = 0
+    })
+    setHandScopaScores(resetScopa)
+    
+    toast.success('Hand banked!')
+  }
 
-                    {count}
-   
+  const adjustScopa = (playerId: string, delta: number) => {
+    setHandScopaScores(prev => ({
+      ...prev,
+      [playerId]: Math.max(0, (prev[playerId] || 0) + delta)
+    }))
+  }
 
-            <div>
-              <div className="spa
-              
-                    placeholder={`Player ${idx + 1}`}
-       
-   
-
-                ))}
-            </div>
-            <Button onClick={startGa
-            </Button>
-        </Car
+  const resetGame = () => {
+    setPlayers((currentPlayers) => {
+      if (!currentPlayers) return []
+      return currentPlayers.map(p => ({
+        ...p,
         totalScore: 0
       }))
     })
@@ -247,7 +217,7 @@ const SUIT_LABELS = {
                     {count}
                   </Button>
                 ))}
-              <Radio
+              </div>
             </div>
 
             <div>
@@ -270,277 +240,167 @@ const SUIT_LABELS = {
 
             <Button onClick={startGame} className="w-full" size="lg">
               Start Game
-              <div cl
-                
-               
-            
-     
-   
-
-              </div>
-          </Sheet
+            </Button>
+          </div>
+        </Card>
       </div>
-  )
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-background p-4">
+      <div className="max-w-4xl mx-auto">
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-3xl font-bold">Scopa Score Tracker</h1>
+          <Button variant="outline" size="sm" onClick={resetGame}>
+            <ArrowsClockwise className="mr-2" />
+            Reset
+          </Button>
+        </div>
+
+        <div className="grid gap-4 mb-6">
+          {players?.map(player => (
+            <Card key={player.id} className="p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-xl font-bold">{player.name}</h2>
+                <div className="text-3xl font-bold text-primary">{player.totalScore}</div>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <Label className="text-sm">Scopa:</Label>
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={() => adjustScopa(player.id, -1)}
+                >
+                  <Minus />
+                </Button>
+                <span className="w-8 text-center font-semibold">{handScopaScores[player.id] || 0}</span>
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={() => adjustScopa(player.id, 1)}
+                >
+                  <Plus />
+                </Button>
+              </div>
+            </Card>
+          ))}
+        </div>
+
+        <Card className="p-4 mb-6">
+          <h3 className="font-bold mb-3">Hand Awards (1 point each)</h3>
+          <div className="grid gap-3">
+            <div>
+              <Label className="text-sm mb-2 block">Cards (Most cards)</Label>
+              <Select value={handCardsWinner || ''} onValueChange={setHandCardsWinner}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select winner" />
+                </SelectTrigger>
+                <SelectContent>
+                  {players?.map(p => (
+                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label className="text-sm mb-2 block">Coins (Most diamonds)</Label>
+              <Select value={handCoinsWinner || ''} onValueChange={setHandCoinsWinner}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select winner" />
+                </SelectTrigger>
+                <SelectContent>
+                  {players?.map(p => (
+                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label className="text-sm mb-2 block">Settebello (7 of diamonds)</Label>
+              <Select value={handSettebelloWinner || ''} onValueChange={setHandSettebelloWinner}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select winner" />
+                </SelectTrigger>
+                <SelectContent>
+                  {players?.map(p => (
+                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label className="text-sm mb-2 block">Primiera</Label>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  className="flex-1"
+                  onClick={openPremieraCalculator}
+                >
+                  <Calculator className="mr-2" />
+                  Calculate
+                </Button>
+                <Select value={handPremieraWinner || ''} onValueChange={setHandPremieraWinner}>
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="Select winner" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {players?.map(p => (
+                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        <Button onClick={bankHand} size="lg" className="w-full">
+          Bank Hand & Add to Scores
+        </Button>
+
+        <Sheet open={premieraOpen} onOpenChange={setPremieraOpen}>
+          <SheetContent side="bottom" className="h-[90vh]">
+            <SheetHeader>
+              <SheetTitle>Primiera Calculator</SheetTitle>
+            </SheetHeader>
+            
+            <div className="mt-6 space-y-6 overflow-auto max-h-[calc(90vh-120px)]">
+              {players?.map(player => (
+                <Card key={player.id} className="p-4">
+                  <h3 className="font-bold mb-3">{player.name}</h3>
+                  <div className="grid grid-cols-2 gap-3">
+                    {premieraCards[player.id]?.map((card, idx) => (
+                      <div key={idx}>
+                        <Label className="text-sm mb-2 block">
+                          {SUIT_LABELS[card.suit]} {card.suit.charAt(0).toUpperCase() + card.suit.slice(1)}
+                        </Label>
+                        <Select 
+                          value={card.value?.toString() || ''} 
+                          onValueChange={(v) => updatePremieraCard(player.id, idx, v ? parseInt(v) : null)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select card" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {CARD_VALUES.map(val => (
+                              <SelectItem key={val} value={val.toString()}>{val}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-3 text-right">
+                    <span className="text-sm text-muted-foreground">Score: </span>
+                    <span className="font-bold">{calculatePremieraForPlayer(player.id)}</span>
+                  </div>
+                </Card>
+              ))}
 
               <div className="flex gap-3">
                 <Button 
@@ -564,5 +424,3 @@ const SUIT_LABELS = {
     </div>
   )
 }
-
-export default App
