@@ -339,7 +339,7 @@ export default function App() {
               </RadioGroup>
             </div>
 
-            <div>
+                      <Label htmlFor={`coins-${p.id}`} className="cursor-pointer flex-1">{p.name}</Label>
               <Label className="text-sm mb-2 block font-semibold">Coins (Most diamonds)</Label>
               <RadioGroup value={handCoinsWinner || ''} onValueChange={setHandCoinsWinner}>
                 <div className="grid gap-2">
@@ -348,12 +348,12 @@ export default function App() {
                       <RadioGroupItem value={p.id} id={`coins-${p.id}`} />
                       <Label htmlFor={`coins-${p.id}`} className="cursor-pointer flex-1">{p.name}</Label>
                     </div>
-                  ))}
+              <RadioGroup value={handSettebelloWinner || ''} onValueChange={setHandSettebelloWinner}>
                 </div>
               </RadioGroup>
-            </div>
-
-            <div>
+                    <div key={p.id} className="flex items-center space-x-2">
+                      <RadioGroupItem value={p.id} id={`settebello-${p.id}`} />
+                      <Label htmlFor={`settebello-${p.id}`} className="cursor-pointer flex-1">{p.name}</Label>
               <Label className="text-sm mb-2 block font-semibold">Settebello (7 of diamonds)</Label>
               <RadioGroup value={handSettebelloWinner || ''} onValueChange={setHandSettebelloWinner}>
                 <div className="grid gap-2">
@@ -362,17 +362,17 @@ export default function App() {
                       <RadioGroupItem value={p.id} id={`settebello-${p.id}`} />
                       <Label htmlFor={`settebello-${p.id}`} className="cursor-pointer flex-1">{p.name}</Label>
                     </div>
-                  ))}
+                <Label className="text-sm font-semibold">Primiera</Label>
                 </div>
               </RadioGroup>
-            </div>
-
-            <div>
+                  size="sm"
+                  onClick={openPremieraCalculator}
+                >
               <div className="flex items-center justify-between mb-2">
                 <Label className="text-sm font-semibold">Primiera</Label>
                 <Button 
                   variant="outline" 
-                  size="sm"
+                  size="sm"onValueChange={setHandPremieraWinner}>
                   onClick={openPremieraCalculator}
                 >
                   <Calculator className="mr-2" />
@@ -381,24 +381,24 @@ export default function App() {
               </div>
               <RadioGroup value={handPremieraWinner || ''} onValueChange={setHandPremieraWinner}>
                 <div className="grid gap-2">
-                  {players?.map(p => (
+              </RadioGroup>
                     <div key={p.id} className="flex items-center space-x-2">
                       <RadioGroupItem value={p.id} id={`premiera-${p.id}`} />
                       <Label htmlFor={`premiera-${p.id}`} className="cursor-pointer flex-1">{p.name}</Label>
                     </div>
-                  ))}
-                </div>
-              </RadioGroup>
-            </div>
-
-            <div>
-              <Label className="text-sm mb-3 block font-semibold">Scopa (per player)</Label>
               <div className="grid gap-3">
-                {players?.map(player => (
-                  <div key={player.id} className="flex items-center justify-between">
+                </div>
+              </RadioGroup>flex items-center justify-between">
                     <Label className="text-sm">{player.name}:</Label>
                     <div className="flex items-center gap-2">
                       <Button 
+              <Label className="text-sm mb-3 block font-semibold">Scopa (per player)</Label>
+              <div className="grid gap-3">
+                {players?.map(player => (}
+                  <div key={player.id} className="flex items-center justify-between">
+                    <Label className="text-sm">{player.name}:</Label>
+                    <div className="flex items-center gap-2">
+                      <Button -center font-semibold">{handScopaScores?.[player.id] || 0}</span>
                         size="sm" 
                         variant="outline"
                         onClick={() => adjustScopa(player.id, -1)}
@@ -416,15 +416,15 @@ export default function App() {
                     </div>
                   </div>
                 ))}
-              </div>
-            </div>
-          </div>
-        </Card>
-
-        <Button onClick={bankHand} size="lg" className="w-full mb-6">
-          Bank Hand & Add to Scores
         </Button>
 
+        {handHistory && handHistory.length > 0 && (
+          <Card className="p-4">
+            <h3 className="font-bold mb-3">Hand History</h3>
+        <Button onClick={bankHand} size="lg" className="w-full mb-6">
+              {handHistory.slice().reverse().map((entry) => (
+                <div key={entry.handNumber} className="flex items-start gap-3 py-2 border-b border-border last:border-0">
+                  <div className="font-semibold text-sm min-w-[60px]">Hand {entry.handNumber}</div>
         {handHistory && handHistory.length > 0 && (
           <Card className="p-4">
             <h3 className="font-bold mb-3">Hand History</h3>
@@ -449,13 +449,6 @@ export default function App() {
           </Card>
         )}
 
-        <Sheet open={premieraOpen} onOpenChange={setPremieraOpen}>
-          <SheetContent side="bottom" className="h-[90vh]">
-            <SheetHeader>
-              <SheetTitle>Primiera Calculator</SheetTitle>
-            </SheetHeader>
-            
-            <div className="mt-6 space-y-6 overflow-auto max-h-[calc(90vh-120px)]">
               {players?.map(player => (
                 <Card key={player.id} className="p-4">
                   <h3 className="font-bold mb-3">{player.name}</h3>
