@@ -4,12 +4,25 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Plus, Minus, Calculator, ArrowsClockwise, PencilSimple } from '@phosphor-icons/react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Plus, Minus, Calculator, List, Check } from '@phosphor-icons/react'
 import { toast } from 'sonner'
+import { t, LANGUAGES } from '@/i18n'
+import { WinnerOverlay } from '@/components/WinnerOverlay'
+import { PremieraCalc } from '@/components/PremieraCalc'
+import { HandChart } from '@/components/HandChart'
+
+// ── Types ──────────────────────────────────────────────
 
 type Player = {
   id: string
@@ -17,310 +30,350 @@ type Player = {
   totalScore: number
 }
 
-type PremieraCard = {
-  suit: 'hearts' | 'diamonds' | 'clubs' | 'spades'
-  value: number | null
+type HandCategoryDetail = {
+  cards: boolean
+  coins: boolean
+  settebello: boolean
+  premiera: boolean
+  scopa: number
 }
 
 type HandHistoryEntry = {
   handNumber: number
   scores: Record<string, number>
+  categories: Record<string, HandCategoryDetail>
   timestamp: number
 }
 
-const CARD_VALUES = [7, 6, 1, 5, 4, 3, 2, 10, 9, 8]
-const PRIMIERA_POINTS: Record<number, number> = {
-  7: 21,
-  6: 18,
-  1: 16,
-  5: 15,
-  4: 14,
-  3: 13,
-  2: 12,
-  10: 10,
-  9: 10,
-  8: 10
+type Game = {
+  id: string
+  players: Player[]
+  handScopaScores: Record<string, number>
+  handCardsWinner: string | null
+  handCoinsWinner: string | null
+  handSettebelloWinner: string | null
+  handPremieraWinner: string | null
+  handHistory: HandHistoryEntry[]
+  createdAt: number
 }
-const STORAGE_KEYS = [
-  'scopa-players',
-  'scopa-hand-scopa',
-  'scopa-hand-cards',
-  'scopa-hand-coins',
-  'scopa-hand-settebello',
-  'scopa-hand-premiera',
-  'scopa-hand-history',
-  'scopa-player-count',
-  'scopa-player-names',
-  'scopa-premiera-open',
-  'scopa-premiera-cards'
-]
-const CONFETTI_COLORS = ['#ef4444', '#f59e0b', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#a855f7']
 
-const SUIT_LABELS = {
-  hearts: '♥',
-  diamonds: '♦',
-  clubs: '♣',
-  spades: '♠'
+type CompletedGame = {
+  id: string
+  players: { name: string; score: number }[]
+  winnerName: string
+  completedAt: number
 }
+
+// ── Constants ──────────────────────────────────────────
+
+const PLAYER_COLORS = [
+  '#3b82f6', '#ef4444', '#10b981', '#8b5cf6', '#f97316', '#14b8a6',
+]
+
+const OLD_STORAGE_KEYS = [
+  'scopa-players', 'scopa-hand-scopa', 'scopa-hand-cards',
+  'scopa-hand-coins', 'scopa-hand-settebello', 'scopa-hand-premiera',
+  'scopa-hand-history', 'scopa-player-count', 'scopa-player-names',
+  'scopa-premiera-open', 'scopa-premiera-cards',
+]
+
+// ── Helpers ────────────────────────────────────────────
+
+function makeId() {
+  return `game-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+}
+
+function freshScopaScores(players: Player[]): Record<string, number> {
+  const s: Record<string, number> = {}
+  players.forEach(p => { s[p.id] = 0 })
+  return s
+}
+
+// ── App ────────────────────────────────────────────────
 
 export default function App() {
-  const [players, setPlayers] = useLocalStorage<Player[]>('scopa-players', [])
-  const [handScopaScores, setHandScopaScores] = useLocalStorage<Record<string, number>>('scopa-hand-scopa', {})
-  const [handCardsWinner, setHandCardsWinner] = useLocalStorage<string | null>('scopa-hand-cards', null)
-  const [handCoinsWinner, setHandCoinsWinner] = useLocalStorage<string | null>('scopa-hand-coins', null)
-  const [handSettebelloWinner, setHandSettebelloWinner] = useLocalStorage<string | null>('scopa-hand-settebello', null)
-  const [handPremieraWinner, setHandPremieraWinner] = useLocalStorage<string | null>('scopa-hand-premiera', null)
-  const [handHistory, setHandHistory] = useLocalStorage<HandHistoryEntry[]>('scopa-hand-history', [])
-  
-  const [playerCount, setPlayerCount] = useLocalStorage<number>('scopa-player-count', 2)
-  const [tempPlayerNames, setTempPlayerNames] = useLocalStorage<string[]>('scopa-player-names', ['Player 1', 'Player 2'])
-  
-  const gameStarted = (players && players.length > 0) || false
-  
-  const [premieraOpen, setPremieraOpen] = useLocalStorage<boolean>('scopa-premiera-open', false)
-  const [premieraCards, setPremieraCards] = useLocalStorage<Record<string, PremieraCard[]>>('scopa-premiera-cards', {})
+  // Persistent state
+  const [games, setGames] = useLocalStorage<Game[]>('scopa-games', [])
+  const [activeGameId, setActiveGameId] = useLocalStorage<string | null>('scopa-active-game-id', null)
+  const [completedGames, setCompletedGames] = useLocalStorage<CompletedGame[]>('scopa-completed-games', [])
+  const [language, setLanguage] = useLocalStorage<string>('scopa-language', 'en')
+
+  // Setup state
+  const [playerCount, setPlayerCount] = useState(2)
+  const [tempPlayerNames, setTempPlayerNames] = useState<string[]>(['', ''])
+
+  // UI state
+  const [premieraOpen, setPremieraOpen] = useState(false)
   const [renameOpen, setRenameOpen] = useState(false)
   const [renameTempNames, setRenameTempNames] = useState<string[]>([])
-  const [confettiBurstId, setConfettiBurstId] = useState<number | null>(null)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [openGamesOpen, setOpenGamesOpen] = useState(false)
 
-  const triggerConfetti = () => {
-    const burstId = Date.now()
-    setConfettiBurstId(burstId)
-    window.setTimeout(() => {
-      setConfettiBurstId((current) => (current === burstId ? null : current))
-    }, 2300)
+  // Winner state
+  const [winnerName, setWinnerName] = useState<string | null>(null)
+  const [isTie, setIsTie] = useState(false)
+  const [tiedPlayerNames, setTiedPlayerNames] = useState<string[]>([])
+
+  // Translation helper
+  const tr = (key: string, params?: Record<string, string>) => t(key, language, params)
+
+  // Active game derived
+  const activeGame = games.find(g => g.id === activeGameId) ?? null
+  const gameStarted = activeGame !== null
+
+  // Update active game helper
+  const updateGame = (updater: (game: Game) => Game) => {
+    setGames(prev => prev.map(g => g.id === activeGameId ? updater(g) : g))
+  }
+
+  // ── Setup ────────────────────────────────────────────
+
+  const changePlayerCount = (count: number) => {
+    setPlayerCount(count)
+    setTempPlayerNames(prev => {
+      const names = Array.from({ length: count }, (_, i) => prev[i] ?? '')
+      return names
+    })
   }
 
   const startGame = () => {
     const newPlayers: Player[] = tempPlayerNames.map((name, idx) => ({
       id: `player-${idx}`,
-      name: name || `Player ${idx + 1}`,
-      totalScore: 0
+      name: name || tr('setup.playerPlaceholder', { n: String(idx + 1) }),
+      totalScore: 0,
     }))
-    setPlayers(newPlayers)
-
-    const initialScopa: Record<string, number> = {}
-    newPlayers.forEach(p => {
-      initialScopa[p.id] = 0
-    })
-    setHandScopaScores(initialScopa)
-    setHandCardsWinner(null)
-    setHandCoinsWinner(null)
-    setHandSettebelloWinner(null)
-    setHandPremieraWinner(null)
-    setHandHistory([])
-    setPremieraOpen(false)
+    const newGame: Game = {
+      id: makeId(),
+      players: newPlayers,
+      handScopaScores: freshScopaScores(newPlayers),
+      handCardsWinner: null,
+      handCoinsWinner: null,
+      handSettebelloWinner: null,
+      handPremieraWinner: null,
+      handHistory: [],
+      createdAt: Date.now(),
+    }
+    setGames(prev => [...prev, newGame])
+    setActiveGameId(newGame.id)
   }
 
+  // ── Game actions ─────────────────────────────────────
+
   const bankHand = () => {
-    if (!players || players.length === 0) return
+    if (!activeGame) return
+    const { players } = activeGame
 
     const handScores: Record<string, number> = {}
-    players.forEach((p) => {
-      handScores[p.id] = handScopaScores?.[p.id] || 0
-    })
+    const categories: Record<string, HandCategoryDetail> = {}
 
-    if (handCardsWinner) handScores[handCardsWinner] = (handScores[handCardsWinner] || 0) + 1
-    if (handCoinsWinner) handScores[handCoinsWinner] = (handScores[handCoinsWinner] || 0) + 1
-    if (handSettebelloWinner) handScores[handSettebelloWinner] = (handScores[handSettebelloWinner] || 0) + 1
-    if (handPremieraWinner) handScores[handPremieraWinner] = (handScores[handPremieraWinner] || 0) + 1
-
-    const updatedPlayers = players.map((p) => ({
-      ...p,
-      totalScore: p.totalScore + (handScores[p.id] || 0)
-    }))
-    setPlayers(updatedPlayers)
-
-    setHandHistory((currentHistory) => {
-      const newEntry = {
-        handNumber: (currentHistory?.length || 0) + 1,
-        scores: handScores,
-        timestamp: Date.now()
+    players.forEach(p => {
+      const scopa = activeGame.handScopaScores[p.id] || 0
+      let score = scopa
+      const cat: HandCategoryDetail = {
+        cards: false,
+        coins: false,
+        settebello: false,
+        premiera: false,
+        scopa,
       }
-      return currentHistory ? [...currentHistory, newEntry] : [newEntry]
+
+      if (activeGame.handCardsWinner === p.id) { score += 1; cat.cards = true }
+      if (activeGame.handCoinsWinner === p.id) { score += 1; cat.coins = true }
+      if (activeGame.handSettebelloWinner === p.id) { score += 1; cat.settebello = true }
+      if (activeGame.handPremieraWinner === p.id) { score += 1; cat.premiera = true }
+
+      handScores[p.id] = score
+      categories[p.id] = cat
     })
 
-    const resetScopa: Record<string, number> = {}
-    players.forEach((p) => {
-      resetScopa[p.id] = 0
-    })
+    const updatedPlayers = players.map(p => ({
+      ...p,
+      totalScore: p.totalScore + (handScores[p.id] || 0),
+    }))
 
-    setHandScopaScores(resetScopa)
-    setHandCardsWinner(null)
-    setHandCoinsWinner(null)
-    setHandSettebelloWinner(null)
-    setHandPremieraWinner(null)
+    const newEntry: HandHistoryEntry = {
+      handNumber: activeGame.handHistory.length + 1,
+      scores: handScores,
+      categories,
+      timestamp: Date.now(),
+    }
 
-    const winners = updatedPlayers.filter((p) => p.totalScore > 11)
-    if (winners.length > 0) {
-      triggerConfetti()
-      const names = winners.map((p) => p.name).join(', ')
-      toast.success(`${names} won the game!`)
+    const updatedGame: Game = {
+      ...activeGame,
+      players: updatedPlayers,
+      handScopaScores: freshScopaScores(updatedPlayers),
+      handCardsWinner: null,
+      handCoinsWinner: null,
+      handSettebelloWinner: null,
+      handPremieraWinner: null,
+      handHistory: [...activeGame.handHistory, newEntry],
+    }
+
+    setGames(prev => prev.map(g => g.id === activeGameId ? updatedGame : g))
+
+    // Check for winner / tie (>= 11)
+    const playersOver11 = updatedPlayers.filter(p => p.totalScore >= 11)
+    if (playersOver11.length > 0) {
+      const maxScore = Math.max(...playersOver11.map(p => p.totalScore))
+      const topPlayers = playersOver11.filter(p => p.totalScore === maxScore)
+
+      if (topPlayers.length === 1) {
+        setWinnerName(topPlayers[0].name)
+        setIsTie(false)
+        setCompletedGames(prev => [...prev, {
+          id: makeId(),
+          players: updatedPlayers.map(p => ({ name: p.name, score: p.totalScore })),
+          winnerName: topPlayers[0].name,
+          completedAt: Date.now(),
+        }])
+      } else {
+        setIsTie(true)
+        setTiedPlayerNames(topPlayers.map(p => p.name))
+        toast.info(tr('winner.tie'))
+      }
     } else {
-      toast.success('Hand banked!')
+      toast.success(tr('toast.handBanked'))
     }
   }
 
   const adjustScopa = (playerId: string, delta: number) => {
-    setHandScopaScores(prev => {
-      if (!prev) return { [playerId]: Math.max(0, delta) }
-      return {
-        ...prev,
-        [playerId]: Math.max(0, (prev[playerId] || 0) + delta)
-      }
+    updateGame(game => ({
+      ...game,
+      handScopaScores: {
+        ...game.handScopaScores,
+        [playerId]: Math.max(0, (game.handScopaScores[playerId] || 0) + delta),
+      },
+    }))
+  }
+
+  const setHandWinner = (category: 'cards' | 'coins' | 'settebello' | 'premiera', playerId: string | null) => {
+    updateGame(game => {
+      const key = `hand${category.charAt(0).toUpperCase() + category.slice(1)}Winner` as
+        'handCardsWinner' | 'handCoinsWinner' | 'handSettebelloWinner' | 'handPremieraWinner'
+      const newValue = game[key] === playerId ? null : playerId
+      return { ...game, [key]: newValue }
     })
   }
 
-  const resetGame = () => {
-    setPlayers((currentPlayers) => {
-      if (!currentPlayers || currentPlayers.length === 0) return []
-      
-      const resetScopa: Record<string, number> = {}
-      currentPlayers.forEach(p => {
-        resetScopa[p.id] = 0
-      })
-      setHandScopaScores(resetScopa)
-      return currentPlayers.map(p => ({
-        ...p,
-        totalScore: 0
-      }))
-    })
-    
-    setHandCardsWinner(null)
-    setHandCoinsWinner(null)
-    setHandSettebelloWinner(null)
-    setHandPremieraWinner(null)
-    setHandHistory([])
-    setPremieraOpen(false)
-    setPremieraCards({})
-    
-    toast.success('Game reset')
+  const resetScores = () => {
+    updateGame(game => ({
+      ...game,
+      players: game.players.map(p => ({ ...p, totalScore: 0 })),
+      handScopaScores: freshScopaScores(game.players),
+      handCardsWinner: null,
+      handCoinsWinner: null,
+      handSettebelloWinner: null,
+      handPremieraWinner: null,
+      handHistory: [],
+    }))
+    toast.success(tr('toast.gameReset'))
   }
 
   const endGame = () => {
-    if (typeof window !== 'undefined') {
-      STORAGE_KEYS.forEach((key) => window.localStorage.removeItem(key))
-    }
-
-    setPlayers([])
-    setHandScopaScores({})
-    setHandCardsWinner(null)
-    setHandCoinsWinner(null)
-    setHandSettebelloWinner(null)
-    setHandPremieraWinner(null)
-    setHandHistory([])
+    OLD_STORAGE_KEYS.forEach(key => {
+      try { window.localStorage.removeItem(key) } catch { /* ignore */ }
+    })
+    setGames(prev => prev.filter(g => g.id !== activeGameId))
+    setActiveGameId(null)
     setPlayerCount(2)
-    setTempPlayerNames(['Player 1', 'Player 2'])
-    setPremieraOpen(false)
-    setPremieraCards({})
-    setRenameOpen(false)
-    setRenameTempNames([])
-
-    toast.success('Game ended')
+    setTempPlayerNames(['', ''])
+    toast.success(tr('toast.gameEnded'))
   }
 
-  const openPremieraCalculator = () => {
-    if (!players || players.length === 0) return
-    
-    const initialCards: Record<string, PremieraCard[]> = {}
-    players.forEach(p => {
-      initialCards[p.id] = [
-        { suit: 'hearts', value: null },
-        { suit: 'diamonds', value: null },
-        { suit: 'clubs', value: null },
-        { suit: 'spades', value: null }
-      ]
-    })
-    setPremieraCards(initialCards)
-    setPremieraOpen(true)
+  const switchGame = (gameId: string) => {
+    setActiveGameId(gameId)
+    setOpenGamesOpen(false)
   }
 
-  const updatePremieraCard = (playerId: string, suitIndex: number, value: number | null) => {
-    setPremieraCards(prev => ({
-      ...prev,
-      [playerId]: prev[playerId].map((card, idx) => 
-        idx === suitIndex ? { ...card, value } : card
-      )
-    }))
-  }
-
-  const calculatePremieraForPlayer = (playerId: string): number => {
-    const cards = premieraCards[playerId]
-    if (!cards) return 0
-    
-    return cards.reduce((sum, card) => {
-      if (card.value === null) return sum
-      return sum + (PRIMIERA_POINTS[card.value] || 0)
-    }, 0)
-  }
-
-  const allPremieraCardsSelected = (): boolean => {
-    if (!players || players.length === 0) return false
-    return players.every(p => {
-      const cards = premieraCards[p.id]
-      return cards && cards.every(c => c.value !== null)
-    })
-  }
-
-  const awardPremiera = () => {
-    if (!players || players.length === 0) return
-    const scores: Array<{ playerId: string, score: number, name: string }> = players.map(p => ({
-      playerId: p.id,
-      score: calculatePremieraForPlayer(p.id),
-      name: p.name
-    }))
-
-    scores.sort((a, b) => b.score - a.score)
-    if (scores.length < 2) {
-      setPremieraOpen(false)
-      return
+  const newGameSamePlayers = () => {
+    if (!activeGame) return
+    setGames(prev => prev.filter(g => g.id !== activeGameId))
+    const newPlayers: Player[] = activeGame.players.map(p => ({ ...p, totalScore: 0 }))
+    const newGame: Game = {
+      id: makeId(),
+      players: newPlayers,
+      handScopaScores: freshScopaScores(newPlayers),
+      handCardsWinner: null,
+      handCoinsWinner: null,
+      handSettebelloWinner: null,
+      handPremieraWinner: null,
+      handHistory: [],
+      createdAt: Date.now(),
     }
-    
-    if (scores[0].score > scores[1].score) {
-      setHandPremieraWinner(scores[0].playerId)
-      toast.success(`${scores[0].name} wins Primiera!`)
-    } else {
-      toast.info("It's a tie - no points awarded")
-    }
-
-    setPremieraOpen(false)
+    setGames(prev => [...prev, newGame])
+    setActiveGameId(newGame.id)
+    setWinnerName(null)
+    setIsTie(false)
   }
 
-  const changePlayerCount = (count: number) => {
-    setPlayerCount(count)
-    const newNames = Array.from({ length: count }, (_, i) => 
-      tempPlayerNames[i] || `Player ${i + 1}`
-    )
-    setTempPlayerNames(newNames)
+  const newGameNewPlayers = () => {
+    setGames(prev => prev.filter(g => g.id !== activeGameId))
+    setActiveGameId(null)
+    setPlayerCount(2)
+    setTempPlayerNames(['', ''])
+    setWinnerName(null)
+    setIsTie(false)
   }
+
+  // ── Rename ───────────────────────────────────────────
 
   const openRenameDialog = () => {
-    if (!players) return
-    setRenameTempNames(players.map(p => p.name))
+    if (!activeGame) return
+    setRenameTempNames(activeGame.players.map(p => p.name))
     setRenameOpen(true)
   }
 
   const saveRenamedPlayers = () => {
-    setPlayers((currentPlayers) => {
-      if (!currentPlayers) return []
-      return currentPlayers.map((p, idx) => ({
+    updateGame(game => ({
+      ...game,
+      players: game.players.map((p, idx) => ({
         ...p,
-        name: renameTempNames[idx] || p.name
-      }))
-    })
+        name: renameTempNames[idx] || p.name,
+      })),
+    }))
     setRenameOpen(false)
-    toast.success('Player names updated')
+    toast.success(tr('toast.namesUpdated'))
   }
+
+  // ── Player button component (#18) ────────────────────
+
+  const PlayerButton = ({
+    player,
+    playerIndex,
+    isSelected,
+    onClick,
+  }: {
+    player: Player
+    playerIndex: number
+    isSelected: boolean
+    onClick: () => void
+  }) => {
+    const color = PLAYER_COLORS[playerIndex % PLAYER_COLORS.length]
+    return (
+      <button
+        onClick={onClick}
+        className="px-3 py-1.5 rounded-md border-2 font-medium text-sm transition-colors"
+        style={{
+          backgroundColor: isSelected ? color : 'transparent',
+          borderColor: color,
+          color: isSelected ? '#ffffff' : color,
+        }}
+      >
+        {player.name}
+      </button>
+    )
+  }
+
+  // ── Setup screen ─────────────────────────────────────
 
   if (!gameStarted) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="w-full max-w-md p-6">
-          <h1 className="text-3xl font-bold text-center mb-6">Scopa Score Tracker</h1>
-          
+          <h1 className="text-3xl font-bold text-center mb-6">{tr('app.title')}</h1>
           <div className="space-y-6">
             <div>
-              <Label className="text-base font-semibold mb-3 block">Number of Players</Label>
+              <Label className="text-base font-semibold mb-3 block">{tr('setup.playerCount')}</Label>
               <div className="grid grid-cols-5 gap-2">
                 {[2, 3, 4, 5, 6].map(count => (
                   <Button
@@ -334,17 +387,16 @@ export default function App() {
                 ))}
               </div>
             </div>
-
             <div>
-              <Label className="text-base font-semibold mb-3 block">Player Names</Label>
+              <Label className="text-base font-semibold mb-3 block">{tr('setup.playerNames')}</Label>
               <div className="space-y-2">
                 {tempPlayerNames.map((name, idx) => (
                   <Input
                     key={idx}
-                    placeholder={`Player ${idx + 1}`}
+                    placeholder={tr('setup.playerPlaceholder', { n: String(idx + 1) })}
                     value={name}
-                    onFocus={(e) => e.target.select()}
-                    onChange={(e) => {
+                    onFocus={e => e.target.select()}
+                    onChange={e => {
                       const newNames = [...tempPlayerNames]
                       newNames[idx] = e.target.value
                       setTempPlayerNames(newNames)
@@ -353,191 +405,261 @@ export default function App() {
                 ))}
               </div>
             </div>
-
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-muted-foreground">{tr('menu.language')}:</span>
+              {LANGUAGES.map(lang => (
+                <button
+                  key={lang.code}
+                  onClick={() => setLanguage(lang.code)}
+                  className={`px-3 py-1 rounded-md border transition-colors ${
+                    language === lang.code
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'border-border hover:bg-muted'
+                  }`}
+                >
+                  {lang.name}
+                </button>
+              ))}
+            </div>
             <Button onClick={startGame} className="w-full" size="lg">
-              Start Game
+              {tr('setup.startGame')}
             </Button>
+            {games.length > 0 && (
+              <div className="pt-2 border-t border-border">
+                <Label className="text-sm text-muted-foreground mb-2 block">{tr('menu.openGames')}</Label>
+                <div className="space-y-2">
+                  {games.map(g => (
+                    <Button
+                      key={g.id}
+                      variant="outline"
+                      className="w-full justify-start"
+                      onClick={() => setActiveGameId(g.id)}
+                    >
+                      {g.players.map(p => p.name).join(` ${tr('games.vs')} `)}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </Card>
       </div>
     )
   }
 
+  // ── Game screen ──────────────────────────────────────
+
+  const { players } = activeGame
+
   return (
-    <div className="min-h-screen bg-background p-4">
-      {confettiBurstId && (
-        <div className="pointer-events-none fixed inset-0 z-50 overflow-hidden" aria-hidden="true">
-          {Array.from({ length: 120 }).map((_, idx) => {
-            const left = `${Math.random() * 100}%`
-            const delay = `${Math.random() * 0.3}s`
-            const duration = `${1.6 + Math.random() * 1.1}s`
-            const color = CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)]
-            const size = 6 + Math.floor(Math.random() * 8)
-            const rotation = `${Math.floor(Math.random() * 360)}deg`
+    <div className="min-h-screen bg-background p-3 sm:p-4">
+      <WinnerOverlay
+        winnerName={winnerName}
+        isTie={isTie}
+        tiedPlayerNames={tiedPlayerNames}
+        onClose={() => { setWinnerName(null); setIsTie(false) }}
+        onNewGameSamePlayers={newGameSamePlayers}
+        onNewGameNewPlayers={newGameNewPlayers}
+        newGameSameLabel={tr('winner.newGameSame')}
+        newGameNewLabel={tr('winner.newGameNew')}
+        tieMessage={tr('winner.tie')}
+        winsMessage={winnerName ? tr('winner.wins', { name: winnerName }) : ''}
+      />
 
-            return (
-              <span
-                key={`${confettiBurstId}-${idx}`}
-                className="confetti-piece"
-                style={{
-                  left,
-                  animationDelay: delay,
-                  animationDuration: duration,
-                  backgroundColor: color,
-                  width: `${size}px`,
-                  height: `${Math.max(4, Math.floor(size * 0.45))}px`,
-                  transform: `rotate(${rotation})`
-                }}
-              />
-            )
-          })}
-        </div>
-      )}
-
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-lg mx-auto">
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-3xl font-bold">Scopa Score Tracker</h1>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={openRenameDialog}>
-              <PencilSimple className="mr-2" />
-              Rename
-            </Button>
-            <Button variant="outline" size="sm" onClick={resetGame}>
-              <ArrowsClockwise className="mr-2" />
-              Reset
-            </Button>
-            <Button variant="destructive" size="sm" onClick={endGame}>
-              End Game
-            </Button>
-          </div>
+          <h1 className="text-xl sm:text-2xl font-bold truncate">{tr('app.title')}</h1>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon">
+                <List size={20} />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem onClick={() => {
+                setActiveGameId(null)
+                setPlayerCount(2)
+                setTempPlayerNames(['', ''])
+              }}>
+                {tr('menu.newGame')}
+              </DropdownMenuItem>
+              {games.length > 1 && (
+                <DropdownMenuItem onClick={() => setOpenGamesOpen(true)}>
+                  {tr('menu.openGames')} ({games.length})
+                </DropdownMenuItem>
+              )}
+              {completedGames.length > 0 && (
+                <DropdownMenuItem onClick={() => setHistoryOpen(true)}>
+                  {tr('menu.history')}
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>{tr('menu.language')}</DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  {LANGUAGES.map(lang => (
+                    <DropdownMenuItem
+                      key={lang.code}
+                      onClick={() => setLanguage(lang.code)}
+                    >
+                      {lang.name}
+                      {language === lang.code && <Check size={16} className="ml-auto" />}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={openRenameDialog}>
+                {tr('menu.rename')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={resetScores}>
+                {tr('menu.reset')}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={endGame}
+                className="text-destructive focus:text-destructive"
+              >
+                {tr('menu.endGame')}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mb-6">
-          {players?.map(player => (
-            <Card key={player.id} className="p-3">
-              <div className="text-sm font-medium mb-1">{player.name}</div>
-              <div className="text-2xl font-bold text-primary">{player.totalScore}</div>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-4">
+          {players.map((player, idx) => (
+            <Card key={player.id} className="p-2 text-center">
+              <div
+                className="text-xs sm:text-sm font-medium truncate"
+                style={{ color: PLAYER_COLORS[idx % PLAYER_COLORS.length] }}
+              >
+                {player.name}
+              </div>
+              <div className="text-4xl sm:text-5xl font-bold text-primary leading-tight">
+                {player.totalScore}
+              </div>
             </Card>
           ))}
         </div>
 
-        <Card className="p-4 mb-4">
-          <h3 className="font-bold mb-3">Hand Awards (1 point each)</h3>
+        <Card className="p-3 sm:p-4 mb-3">
+          <h3 className="font-bold mb-3 text-sm">{tr('game.handAwards')}</h3>
           <div className="grid gap-4">
             <div>
-              <Label className="text-sm mb-2 block font-semibold">Cards (Most cards)</Label>
-              <RadioGroup value={handCardsWinner || ''} onValueChange={setHandCardsWinner}>
-                <div className="grid gap-2">
-                  {players?.map(p => (
-                    <div key={p.id} className="flex items-center space-x-2">
-                      <RadioGroupItem value={p.id} id={`cards-${p.id}`} />
-                      <Label htmlFor={`cards-${p.id}`} className="cursor-pointer flex-1">{p.name}</Label>
-                    </div>
-                  ))}
-                </div>
-              </RadioGroup>
-            </div>
-
-            <div>
-              <Label className="text-sm mb-2 block font-semibold">Coins (Most diamonds)</Label>
-              <RadioGroup value={handCoinsWinner || ''} onValueChange={setHandCoinsWinner}>
-                <div className="grid gap-2">
-                  {players?.map(p => (
-                    <div key={p.id} className="flex items-center space-x-2">
-                      <RadioGroupItem value={p.id} id={`coins-${p.id}`} />
-                      <Label htmlFor={`coins-${p.id}`} className="cursor-pointer flex-1">{p.name}</Label>
-                    </div>
-                  ))}
-                </div>
-              </RadioGroup>
-            </div>
-
-            <div>
-              <Label className="text-sm mb-2 block font-semibold">Settebello (7 of diamonds)</Label>
-              <RadioGroup value={handSettebelloWinner || ''} onValueChange={setHandSettebelloWinner}>
-                <div className="grid gap-2">
-                  {players?.map(p => (
-                    <div key={p.id} className="flex items-center space-x-2">
-                      <RadioGroupItem value={p.id} id={`settebello-${p.id}`} />
-                      <Label htmlFor={`settebello-${p.id}`} className="cursor-pointer flex-1">{p.name}</Label>
-                    </div>
-                  ))}
-                </div>
-              </RadioGroup>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <Label className="text-sm font-semibold">Primiera</Label>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={openPremieraCalculator}
-                >
-                  <Calculator className="mr-2" />
-                  Calculate
-                </Button>
-              </div>
-              <RadioGroup value={handPremieraWinner || ''} onValueChange={setHandPremieraWinner}>
-                <div className="grid gap-2">
-                  {players?.map(p => (
-                    <div key={p.id} className="flex items-center space-x-2">
-                      <RadioGroupItem value={p.id} id={`premiera-${p.id}`} />
-                      <Label htmlFor={`premiera-${p.id}`} className="cursor-pointer flex-1">{p.name}</Label>
-                    </div>
-                  ))}
-                </div>
-              </RadioGroup>
-            </div>
-
-            <div>
-              <Label className="text-sm mb-3 block font-semibold">Scopa (per player)</Label>
-              <div className="grid gap-3">
-                {players?.map(player => (
+              <Label className="text-xs mb-2 block font-semibold">
+                {tr('game.scopa')} <span className="font-normal text-muted-foreground">({tr('game.scopaDesc')})</span>
+              </Label>
+              <div className="grid gap-2">
+                {players.map((player, idx) => (
                   <div key={player.id} className="flex items-center justify-between">
-                    <Label className="text-sm">{player.name}:</Label>
+                    <span className="text-sm font-medium" style={{ color: PLAYER_COLORS[idx % PLAYER_COLORS.length] }}>
+                      {player.name}
+                    </span>
                     <div className="flex items-center gap-2">
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => adjustScopa(player.id, -1)}
-                      >
-                        <Minus />
+                      <Button size="sm" variant="outline" onClick={() => adjustScopa(player.id, -1)}>
+                        <Minus size={14} />
                       </Button>
-                      <span className="w-8 text-center font-semibold">{handScopaScores?.[player.id] || 0}</span>
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => adjustScopa(player.id, 1)}
-                      >
-                        <Plus />
+                      <span className="w-8 text-center font-semibold text-sm">
+                        {activeGame.handScopaScores[player.id] || 0}
+                      </span>
+                      <Button size="sm" variant="outline" onClick={() => adjustScopa(player.id, 1)}>
+                        <Plus size={14} />
                       </Button>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
+
+            <div>
+              <Label className="text-xs mb-2 block font-semibold">
+                {tr('game.cards')} <span className="font-normal text-muted-foreground">({tr('game.cardsDesc')})</span>
+              </Label>
+              <div className="flex flex-wrap gap-2">
+                {players.map((p, idx) => (
+                  <PlayerButton key={p.id} player={p} playerIndex={idx} isSelected={activeGame.handCardsWinner === p.id} onClick={() => setHandWinner('cards', p.id)} />
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-xs mb-2 block font-semibold">
+                {tr('game.coins')} <span className="font-normal text-muted-foreground">({tr('game.coinsDesc')})</span>
+              </Label>
+              <div className="flex flex-wrap gap-2">
+                {players.map((p, idx) => (
+                  <PlayerButton key={p.id} player={p} playerIndex={idx} isSelected={activeGame.handCoinsWinner === p.id} onClick={() => setHandWinner('coins', p.id)} />
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-xs mb-2 block font-semibold">
+                {tr('game.settebello')} <span className="font-normal text-muted-foreground">({tr('game.settebelloDesc')})</span>
+              </Label>
+              <div className="flex flex-wrap gap-2">
+                {players.map((p, idx) => (
+                  <PlayerButton key={p.id} player={p} playerIndex={idx} isSelected={activeGame.handSettebelloWinner === p.id} onClick={() => setHandWinner('settebello', p.id)} />
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-xs font-semibold">{tr('game.primiera')}</Label>
+                <Button variant="outline" size="sm" onClick={() => setPremieraOpen(true)}>
+                  <Calculator className="mr-1" size={14} />
+                  {tr('game.calculate')}
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {players.map((p, idx) => (
+                  <PlayerButton key={p.id} player={p} playerIndex={idx} isSelected={activeGame.handPremieraWinner === p.id} onClick={() => setHandWinner('premiera', p.id)} />
+                ))}
+              </div>
+            </div>
           </div>
         </Card>
 
-        <Button onClick={bankHand} size="lg" className="w-full mb-6">
-          Bank Hand
+        <Button onClick={bankHand} size="lg" className="w-full mb-4">
+          {tr('game.bankHand')}
         </Button>
 
-        {handHistory && handHistory.length > 0 && (
-          <Card className="p-4">
-            <h3 className="font-bold mb-3">Hand History</h3>
-            <div className="space-y-2">
-              {handHistory.slice().reverse().map((entry) => (
+        {activeGame.handHistory.length > 0 && (
+          <Card className="p-3 sm:p-4">
+            <h3 className="font-bold mb-2 text-sm">{tr('game.handHistory')}</h3>
+            <HandChart
+              players={players.map(p => ({ id: p.id, name: p.name }))}
+              handHistory={activeGame.handHistory}
+              tr={tr}
+            />
+            <div className="space-y-2 mt-4">
+              {activeGame.handHistory.slice().reverse().map(entry => (
                 <div key={entry.handNumber} className="flex items-start gap-3 py-2 border-b border-border last:border-0">
-                  <div className="font-semibold text-sm min-w-[60px]">Hand {entry.handNumber}</div>
-                  <div className="flex-1 text-sm">
-                    {players?.map(p => {
+                  <div className="font-semibold text-xs min-w-[50px]">
+                    {tr('game.hand')} {entry.handNumber}
+                  </div>
+                  <div className="flex-1 text-xs">
+                    {players.map((p, idx) => {
                       const points = entry.scores[p.id] || 0
                       if (points === 0) return null
+                      const cat = entry.categories?.[p.id]
+                      const details = cat ? [
+                        cat.cards && tr('category.cards'),
+                        cat.coins && tr('category.coins'),
+                        cat.settebello && tr('category.settebello'),
+                        cat.premiera && tr('category.primiera'),
+                        cat.scopa > 0 && `${tr('category.scopa')} x${cat.scopa}`,
+                      ].filter(Boolean).join(', ') : ''
                       return (
                         <div key={p.id} className="text-muted-foreground">
-                          {p.name}: <span className="font-semibold text-foreground">{points} {points === 1 ? 'pt' : 'pts'}</span>
+                          <span style={{ color: PLAYER_COLORS[idx % PLAYER_COLORS.length] }} className="font-medium">
+                            {p.name}
+                          </span>
+                          {': '}
+                          <span className="font-semibold text-foreground">
+                            {points} {points === 1 ? tr('game.pt') : tr('game.pts')}
+                          </span>
+                          {details && <span className="text-muted-foreground ml-1">({details})</span>}
                         </div>
                       )
                     })}
@@ -547,96 +669,97 @@ export default function App() {
             </div>
           </Card>
         )}
-
-        <Sheet open={premieraOpen} onOpenChange={setPremieraOpen}>
-          <SheetContent side="bottom" className="h-[90vh] overflow-y-auto">
-            <SheetHeader>
-              <SheetTitle>Primiera Calculator</SheetTitle>
-            </SheetHeader>
-            <div className="space-y-4 mt-6">
-              {players?.map(player => (
-                <Card key={player.id} className="p-4">
-                  <h3 className="font-bold mb-3">{player.name}</h3>
-                  <div className="grid grid-cols-2 gap-3">
-                    {premieraCards[player.id]?.map((card, idx) => (
-                      <div key={idx}>
-                        <Label className="text-sm mb-2 block">
-                          {SUIT_LABELS[card.suit]} {card.suit.charAt(0).toUpperCase() + card.suit.slice(1)}
-                        </Label>
-                        <Select 
-                          value={card.value?.toString() || ''} 
-                          onValueChange={(v) => updatePremieraCard(player.id, idx, v ? parseInt(v) : null)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select card" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {CARD_VALUES.map(val => (
-                              <SelectItem key={val} value={val.toString()}>{val}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="mt-3 text-right">
-                    <span className="text-sm text-muted-foreground">Score: </span>
-                    <span className="font-bold">{calculatePremieraForPlayer(player.id)}</span>
-                  </div>
-                </Card>
-              ))}
-
-              <div className="flex gap-3">
-                <Button 
-                  onClick={awardPremiera} 
-                  disabled={!allPremieraCardsSelected()}
-                  className="flex-1"
-                >
-                  Award Point
-                </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={() => setPremieraOpen(false)}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          </SheetContent>
-        </Sheet>
-
-        <Dialog open={renameOpen} onOpenChange={setRenameOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Rename Players</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-3 mt-4">
-              {renameTempNames.map((name, idx) => (
-                <div key={idx}>
-                  <Label className="text-sm mb-2 block">Player {idx + 1}</Label>
-                  <Input
-                    value={name}
-                    onFocus={(e) => e.target.select()}
-                    onChange={(e) => {
-                      const newNames = [...renameTempNames]
-                      newNames[idx] = e.target.value
-                      setRenameTempNames(newNames)
-                    }}
-                  />
-                </div>
-              ))}
-              <div className="flex gap-3 pt-3">
-                <Button onClick={saveRenamedPlayers} className="flex-1">
-                  Save Names
-                </Button>
-                <Button variant="outline" onClick={() => setRenameOpen(false)}>
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
+
+      <PremieraCalc open={premieraOpen} onOpenChange={setPremieraOpen} tr={tr} />
+
+      <Dialog open={renameOpen} onOpenChange={setRenameOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{tr('rename.title')}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 mt-4">
+            {renameTempNames.map((name, idx) => (
+              <div key={idx}>
+                <Label className="text-sm mb-2 block">{tr('setup.playerPlaceholder', { n: String(idx + 1) })}</Label>
+                <Input
+                  value={name}
+                  onFocus={e => e.target.select()}
+                  onChange={e => {
+                    const newNames = [...renameTempNames]
+                    newNames[idx] = e.target.value
+                    setRenameTempNames(newNames)
+                  }}
+                />
+              </div>
+            ))}
+            <div className="flex gap-3 pt-3">
+              <Button onClick={saveRenamedPlayers} className="flex-1">{tr('rename.save')}</Button>
+              <Button variant="outline" onClick={() => setRenameOpen(false)}>{tr('rename.cancel')}</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
+        <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{tr('menu.history')}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 mt-2">
+            {completedGames.length === 0 && (
+              <p className="text-sm text-muted-foreground">{tr('history.noGames')}</p>
+            )}
+            {completedGames.slice().reverse().map(game => (
+              <Card key={game.id} className="p-3">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="font-bold text-sm">🏆 {game.winnerName}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(game.completedAt).toLocaleDateString(language === 'it' ? 'it-IT' : 'en-US', {
+                      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+                    })}
+                  </span>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {game.players.map(p => `${p.name} (${p.score})`).join(', ')}
+                </div>
+              </Card>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={openGamesOpen} onOpenChange={setOpenGamesOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{tr('menu.openGames')}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 mt-2">
+            {games.filter(g => g.id !== activeGameId).length === 0 && (
+              <p className="text-sm text-muted-foreground">{tr('games.noOtherGames')}</p>
+            )}
+            {games.map(g => (
+              <Card
+                key={g.id}
+                className={`p-3 cursor-pointer transition-colors hover:bg-muted ${g.id === activeGameId ? 'ring-2 ring-primary' : ''}`}
+                onClick={() => switchGame(g.id)}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="text-sm font-medium">
+                    {g.players.map(p => p.name).join(` ${tr('games.vs')} `)}
+                  </div>
+                  {g.id === activeGameId && (
+                    <span className="text-xs text-primary font-medium">{tr('games.current')}</span>
+                  )}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  {g.players.map(p => `${p.name}: ${p.totalScore}`).join(' | ')}
+                </div>
+              </Card>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

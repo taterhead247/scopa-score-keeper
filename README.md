@@ -7,9 +7,42 @@ A mobile-first web application for tracking scores in the traditional Italian ca
 - Track scores for 2-6 players
 - Score tracking for all Scopa categories (Cards, Coins, Settebello, Primiera, Scopa)
 - Hand-based scoring system - enter points for each hand then bank them
-- Built-in Primiera calculator
+- Built-in Primiera calculator (pull-out tray)
+- Hand history with interactive score graph
+- Multiple concurrent games (tabs)
+- Game history for completed games
+- Multi-language support (English & Italian)
 - Persistent game state (scores saved to browser)
-- Mobile-friendly responsive design
+- Mobile-friendly responsive design (no horizontal scroll)
+- Winner celebration with confetti & card cascade animation
+
+## Development
+
+### Prerequisites
+
+- Node.js 18+
+- npm
+
+### Install & Run
+
+```bash
+npm install
+npm run dev
+```
+
+### Running Tests
+
+Tests use [Vitest](https://vitest.dev/) with React Testing Library.
+
+```bash
+# Run tests once
+npm run test:run
+
+# Run tests in watch mode (re-runs on file changes)
+npm test
+```
+
+**In VS Code:** Install the [Vitest extension](https://marketplace.visualstudio.com/items?itemName=vitest.explorer) for inline test running and debugging. Tests can be run/debugged directly from the test file gutter icons.
 
 ## Deploying to GitHub Pages
 

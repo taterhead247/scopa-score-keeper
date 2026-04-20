@@ -180,14 +180,16 @@
     @apply border-border outline-ring/50;
   }
 
-  body {
+  html, body {
     @apply bg-background text-foreground;
+    overflow-x: hidden;
+    max-width: 100vw;
   }
 }
 
 .confetti-piece {
   position: absolute;
-  top: -12px;
+  top: -16px;
   border-radius: 9999px;
   opacity: 0.95;
   animation-name: confetti-fall;
@@ -200,9 +202,36 @@
     transform: translate3d(0, 0, 0) rotate(0deg);
     opacity: 1;
   }
-
   100% {
     transform: translate3d(0, 110vh, 0) rotate(720deg);
     opacity: 0;
   }
+}
+
+.solitaire-card {
+  position: absolute;
+  top: -70px;
+  width: 44px;
+  height: 62px;
+  border-radius: 6px;
+  border: 2px solid white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: bold;
+  animation: card-cascade var(--card-duration, 3s) ease-in forwards;
+  animation-delay: var(--card-delay, 0s);
+  box-shadow: 1px 2px 6px rgba(0,0,0,0.3);
+}
+
+@keyframes card-cascade {
+  0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+  25% { transform: translateY(50vh) rotate(90deg); opacity: 1; }
+  35% { transform: translateY(35vh) rotate(120deg); opacity: 1; }
+  50% { transform: translateY(65vh) rotate(200deg); opacity: 1; }
+  60% { transform: translateY(50vh) rotate(240deg); opacity: 0.95; }
+  75% { transform: translateY(75vh) rotate(320deg); opacity: 0.9; }
+  85% { transform: translateY(65vh) rotate(360deg); opacity: 0.85; }
+  100% { transform: translateY(110vh) rotate(420deg); opacity: 0; }
 }
