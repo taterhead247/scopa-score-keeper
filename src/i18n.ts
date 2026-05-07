@@ -55,6 +55,7 @@ const en: Translations = {
   'premiera.cavallo': 'Cavallo (Queen)',
   'premiera.re': 'Re (King)',
   'premiera.close': 'Close',
+  'premiera.reset': 'Reset',
   'premiera.points': '{pts} pts',
 
   'history.noGames': 'No completed games yet.',
@@ -88,6 +89,10 @@ const en: Translations = {
   'category.settebello': 'Settebello',
   'category.primiera': 'Primiera',
   'category.scopa': 'Scopa',
+
+  'cardValues.title': 'Card Point Values',
+  'cardValues.description': 'Point values for Primiera scoring. Pick the best card from each suit.',
+  'cardValues.note': 'These values are used in Primiera scoring to determine the best hand.',
 }
 
 const it: Translations = {
@@ -145,6 +150,7 @@ const it: Translations = {
   'premiera.cavallo': 'Cavallo',
   'premiera.re': 'Re',
   'premiera.close': 'Chiudi',
+  'premiera.reset': 'Ripristina',
   'premiera.points': '{pts} pti',
 
   'history.noGames': 'Nessuna partita completata.',
@@ -178,6 +184,10 @@ const it: Translations = {
   'category.settebello': 'Settebello',
   'category.primiera': 'Primiera',
   'category.scopa': 'Scopa',
+
+  'cardValues.title': 'Valori dei Punti delle Carte',
+  'cardValues.description': 'Valori punti per il calcolo della Primiera. Scegli la migliore carta di ogni seme.',
+  'cardValues.note': 'Questi valori vengono utilizzati nel calcolo della Primiera per determinare la mano migliore.',
 }
 
 const translations: Record<string, Translations> = { en, it }
