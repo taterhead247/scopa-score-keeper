@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Scopa Score Keeper</string>
+    <string name="title_activity_main">Scopa Score Keeper</string>
+    <string name="package_name">vin.evan.scopa</string>
+    <string name="custom_url_scheme">vin.evan.scopa</string>
+</resources>
