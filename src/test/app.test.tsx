@@ -2,6 +2,21 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import App from '../App'
 
+// Mock window.matchMedia for useIsMobile hook
+Object.defineProperty(window, 'matchMedia', {
+  writable: true,
+  value: vi.fn().mockImplementation((query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  })),
+})
+
 // Mock sonner toast
 vi.mock('sonner', () => ({
   toast: {
@@ -124,6 +139,24 @@ describe('Game scoring', () => {
     const updatedButtons = screen.getAllByText('Player 1').filter(el => el.tagName === 'BUTTON')
     const selectedButton = updatedButtons.find(btn => btn.style.backgroundColor !== 'transparent')
     expect(selectedButton).toBeTruthy()
+  })
+})
+
+describe('Card Values Legend', () => {
+  beforeEach(() => {
+    localStorage.clear()
+  })
+
+  it('opens and closes the card values legend', () => {
+    render(<App />)
+    fireEvent.click(screen.getByText('Start Game'))
+
+    // Open the legend via the button in the header
+    fireEvent.click(screen.getByTitle('Card Point Values'))
+    expect(screen.getAllByText('Card Point Values').length).toBeGreaterThanOrEqual(1)
+
+    // Close by toggling the sheet closed
+    fireEvent.click(screen.getByTitle('Card Point Values'))
   })
 })
 

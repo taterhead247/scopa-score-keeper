@@ -95,8 +95,11 @@ export function PremieraCalc({ open, onOpenChange, tr }: PremieraCalcProps) {
           <div className="text-4xl font-bold text-primary">{total}</div>
         </div>
 
-        <div className="mt-4">
-          <Button variant="outline" className="w-full" onClick={handleClose}>
+        <div className="mt-4 flex gap-2">
+          <Button variant="outline" className="flex-1" onClick={() => setCardCounts({})}>
+            {tr('premiera.reset')}
+          </Button>
+          <Button variant="outline" className="flex-1" onClick={handleClose}>
             {tr('premiera.close')}
           </Button>
         </div>

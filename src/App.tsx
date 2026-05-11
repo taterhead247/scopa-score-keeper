@@ -15,12 +15,13 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Plus, Minus, Calculator, List, Check } from '@phosphor-icons/react'
+import { Plus, Minus, Calculator, List, Check, Key } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 import { t, LANGUAGES } from '@/i18n'
 import { WinnerOverlay } from '@/components/WinnerOverlay'
 import { PremieraCalc } from '@/components/PremieraCalc'
 import { HandChart } from '@/components/HandChart'
+import { CardValuesLegend } from '@/components/CardValuesLegend'
 
 // ── Types ──────────────────────────────────────────────
 
@@ -104,6 +105,7 @@ export default function App() {
 
   // UI state
   const [premieraOpen, setPremieraOpen] = useState(false)
+  const [cardValuesOpen, setCardValuesOpen] = useState(false)
   const [renameOpen, setRenameOpen] = useState(false)
   const [renameTempNames, setRenameTempNames] = useState<string[]>([])
   const [historyOpen, setHistoryOpen] = useState(false)
@@ -469,7 +471,11 @@ export default function App() {
       <div className="max-w-lg mx-auto">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-xl sm:text-2xl font-bold truncate">{tr('app.title')}</h1>
-          <DropdownMenu>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon" onClick={() => setCardValuesOpen(true)} title={tr('cardValues.title')}>
+              <Key size={20} />
+            </Button>
+            <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="icon">
                 <List size={20} />
@@ -522,7 +528,8 @@ export default function App() {
                 {tr('menu.endGame')}
               </DropdownMenuItem>
             </DropdownMenuContent>
-          </DropdownMenu>
+            </DropdownMenu>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-4">
@@ -672,6 +679,8 @@ export default function App() {
       </div>
 
       <PremieraCalc open={premieraOpen} onOpenChange={setPremieraOpen} tr={tr} />
+
+      <CardValuesLegend open={cardValuesOpen} onOpenChange={setCardValuesOpen} tr={tr} />
 
       <Dialog open={renameOpen} onOpenChange={setRenameOpen}>
         <DialogContent>
