@@ -57,7 +57,7 @@
         "d3": "^7.9.0",
         "date-fns": "^4.2.1",
         "embla-carousel-react": "^8.5.2",
-        "framer-motion": "^12.39.0",
+        "framer-motion": "^12.40.0",
         "input-otp": "^1.4.2",
         "lucide-react": "^1.16.0",
         "marked": "^18.0.4",
@@ -95,7 +95,7 @@
         "tailwindcss": "^4.1.11",
         "typescript": "~6.0.3",
         "typescript-eslint": "^8.59.4",
-        "vite": "^8.0.13",
+        "vite": "^8.0.14",
         "vitest": "^4.1.7"
     },
     "workspaces": {
