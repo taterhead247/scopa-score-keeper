@@ -1,6 +1,7 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import App from '../App'
+import { PROFILES_STORAGE_KEY, PROFILES_MIGRATED_FLAG, type PlayerProfile } from '../lib/profiles'
 
 // Mock window.matchMedia for useIsMobile hook
 Object.defineProperty(window, 'matchMedia', {
@@ -26,6 +27,34 @@ vi.mock('sonner', () => ({
   },
 }))
 
+function seedProfiles(names: string[]): PlayerProfile[] {
+  const profiles: PlayerProfile[] = names.map((name, idx) => ({
+    id: `profile-test-${idx}`,
+    name,
+    color: ['#3b82f6', '#ef4444', '#10b981', '#8b5cf6'][idx % 4],
+    emoji: '😀',
+    createdAt: Date.now() + idx,
+  }))
+  localStorage.setItem(PROFILES_STORAGE_KEY, JSON.stringify(profiles))
+  localStorage.setItem(PROFILES_MIGRATED_FLAG, '1')
+  return profiles
+}
+
+function startGameWithProfiles(profiles: PlayerProfile[]) {
+  // Each empty seat opens the picker; pick a profile by clicking its name in the dialog.
+  for (let i = 0; i < profiles.length; i++) {
+    const seatButton = screen.getByText(`Select Player ${i + 1}`)
+    fireEvent.click(seatButton)
+    // ProfilePicker dialog opens — click the profile entry.
+    // Name appears multiple times after first pick (seat button + remaining picker entries),
+    // so locate it by querySelector to grab the picker entry specifically.
+    const allMatching = screen.getAllByText(profiles[i].name)
+    const pickerEntry = allMatching.find(el => el.closest('button')?.getAttribute('disabled') === null) ?? allMatching[0]
+    fireEvent.click(pickerEntry)
+  }
+  fireEvent.click(screen.getByText('Start Game'))
+}
+
 describe('App', () => {
   beforeEach(() => {
     localStorage.clear()
@@ -44,16 +73,24 @@ describe('App', () => {
     expect(screen.getByText('6')).toBeInTheDocument()
   })
 
-  it('changes player count and shows correct number of inputs', () => {
+  it('changes player count and shows correct number of seats', () => {
     render(<App />)
     fireEvent.click(screen.getByText('3'))
-    const inputs = screen.getAllByPlaceholderText(/Player/)
-    expect(inputs.length).toBe(3)
+    expect(screen.getByText('Select Player 1')).toBeInTheDocument()
+    expect(screen.getByText('Select Player 2')).toBeInTheDocument()
+    expect(screen.getByText('Select Player 3')).toBeInTheDocument()
   })
 
-  it('starts a game and shows game screen', () => {
+  it('Start Game is disabled until all seats are filled', () => {
     render(<App />)
-    fireEvent.click(screen.getByText('Start Game'))
+    const startBtn = screen.getByText('Start Game').closest('button')
+    expect(startBtn).toBeDisabled()
+  })
+
+  it('starts a game once profiles are picked and shows game screen', () => {
+    const profiles = seedProfiles(['Mario', 'Luigi'])
+    render(<App />)
+    startGameWithProfiles(profiles)
     expect(screen.getByText('Bank Hand')).toBeInTheDocument()
   })
 
@@ -70,33 +107,26 @@ describe('App', () => {
     expect(screen.getByText('Inizia Partita')).toBeInTheDocument()
   })
 
-  it('shows player names with default values after starting', () => {
+  it('uses profile names in the game UI', () => {
+    const profiles = seedProfiles(['Mario', 'Luigi'])
     render(<App />)
-    fireEvent.click(screen.getByText('Start Game'))
-    expect(screen.getAllByText('Player 1').length).toBeGreaterThanOrEqual(1)
-    expect(screen.getAllByText('Player 2').length).toBeGreaterThanOrEqual(1)
-  })
-
-  it('uses custom player names when provided', () => {
-    render(<App />)
-    const inputs = screen.getAllByPlaceholderText(/Player/)
-    fireEvent.change(inputs[0], { target: { value: 'Mario' } })
-    fireEvent.change(inputs[1], { target: { value: 'Luigi' } })
-    fireEvent.click(screen.getByText('Start Game'))
+    startGameWithProfiles(profiles)
     expect(screen.getAllByText('Mario').length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByText('Luigi').length).toBeGreaterThanOrEqual(1)
   })
 
   it('shows initial scores as 0', () => {
+    const profiles = seedProfiles(['Mario', 'Luigi'])
     render(<App />)
-    fireEvent.click(screen.getByText('Start Game'))
+    startGameWithProfiles(profiles)
     const zeros = screen.getAllByText('0')
-    expect(zeros.length).toBeGreaterThanOrEqual(2) // at least 2 player scores
+    expect(zeros.length).toBeGreaterThanOrEqual(2)
   })
 
   it('shows scoring categories', () => {
+    const profiles = seedProfiles(['Mario', 'Luigi'])
     render(<App />)
-    fireEvent.click(screen.getByText('Start Game'))
+    startGameWithProfiles(profiles)
     expect(screen.getByText(/Cards/)).toBeInTheDocument()
     expect(screen.getByText(/Coins/)).toBeInTheDocument()
     expect(screen.getByText(/Settebello/)).toBeInTheDocument()
@@ -111,34 +141,31 @@ describe('Game scoring', () => {
   })
 
   it('player buttons are used instead of radio buttons for scoring', () => {
+    const profiles = seedProfiles(['Alice', 'Bob'])
     render(<App />)
-    const inputs = screen.getAllByPlaceholderText(/Player/)
-    fireEvent.change(inputs[0], { target: { value: 'Alice' } })
-    fireEvent.change(inputs[1], { target: { value: 'Bob' } })
-    fireEvent.click(screen.getByText('Start Game'))
+    startGameWithProfiles(profiles)
 
-    // Should have multiple Alice/Bob buttons for each category
     const aliceButtons = screen.getAllByText('Alice')
-    expect(aliceButtons.length).toBeGreaterThanOrEqual(4) // cards, coins, settebello, primiera + score card
+    expect(aliceButtons.length).toBeGreaterThanOrEqual(4)
   })
 
-  it('clicking a player button selects them for a category', async () => {
+  it('clicking a player button selects them for a category', () => {
+    const profiles = seedProfiles(['Mario', 'Luigi'])
     render(<App />)
-    fireEvent.click(screen.getByText('Start Game'))
+    startGameWithProfiles(profiles)
 
-    // Find all Player 1 buttons (there should be one per scoring category + the score card)
-    const p1Buttons = screen.getAllByText('Player 1')
-    // Filter to only button elements in the scoring area
-    const categoryButtons = p1Buttons.filter(el => el.tagName === 'BUTTON')
-    expect(categoryButtons.length).toBeGreaterThanOrEqual(4) // cards, coins, settebello, premiera
-    
-    // Click a category button
-    fireEvent.click(categoryButtons[0])
-    // After click & re-render, the button style should change
-    // The updated button will have a non-transparent background
-    const updatedButtons = screen.getAllByText('Player 1').filter(el => el.tagName === 'BUTTON')
-    const selectedButton = updatedButtons.find(btn => btn.style.backgroundColor !== 'transparent')
-    expect(selectedButton).toBeTruthy()
+    const marioMatches = screen.getAllByText('Mario')
+    const categoryButtons = marioMatches.filter(el => el.closest('button')?.tagName === 'BUTTON')
+    expect(categoryButtons.length).toBeGreaterThanOrEqual(4)
+
+    const firstCategoryButton = categoryButtons[0].closest('button') as HTMLButtonElement
+    fireEvent.click(firstCategoryButton)
+
+    const updated = screen.getAllByText('Mario')
+      .map(el => el.closest('button'))
+      .filter((b): b is HTMLButtonElement => b !== null)
+    const selected = updated.find(b => b.style.backgroundColor && b.style.backgroundColor !== 'transparent')
+    expect(selected).toBeTruthy()
   })
 })
 
@@ -148,14 +175,13 @@ describe('Card Values Legend', () => {
   })
 
   it('opens and closes the card values legend', () => {
+    const profiles = seedProfiles(['Mario', 'Luigi'])
     render(<App />)
-    fireEvent.click(screen.getByText('Start Game'))
+    startGameWithProfiles(profiles)
 
-    // Open the legend via the button in the header
     fireEvent.click(screen.getByTitle('Card Point Values'))
     expect(screen.getAllByText('Card Point Values').length).toBeGreaterThanOrEqual(1)
 
-    // Close by toggling the sheet closed
     fireEvent.click(screen.getByTitle('Card Point Values'))
   })
 })
@@ -166,12 +192,33 @@ describe('Win condition', () => {
   })
 
   it('win threshold is >= 11, not > 11', () => {
-    // This test verifies the logic by checking the code behavior
-    // A player with exactly 11 points should trigger the win condition
+    const profiles = seedProfiles(['Mario', 'Luigi'])
     render(<App />)
-    fireEvent.click(screen.getByText('Start Game'))
-    // The actual win logic is tested indirectly through gameplay
-    // The key fix was changing > 11 to >= 11 in bankHand
+    startGameWithProfiles(profiles)
     expect(screen.getByText('Bank Hand')).toBeInTheDocument()
+  })
+})
+
+describe('Player Profiles', () => {
+  beforeEach(() => {
+    localStorage.clear()
+  })
+
+  it('shows empty state when no profiles exist and disables Start Game', () => {
+    render(<App />)
+    expect(screen.getByText('Select Player 1')).toBeInTheDocument()
+    expect(screen.getByText('Select Player 2')).toBeInTheDocument()
+    expect(screen.getByText('Start Game').closest('button')).toBeDisabled()
+  })
+
+  it('persists profiles across renders via localStorage', () => {
+    seedProfiles(['Mario', 'Luigi'])
+    const { unmount } = render(<App />)
+    unmount()
+    render(<App />)
+    fireEvent.click(screen.getByText('Select Player 1'))
+    expect(screen.getByText('Choose a player')).toBeInTheDocument()
+    expect(screen.getByText('Mario')).toBeInTheDocument()
+    expect(screen.getByText('Luigi')).toBeInTheDocument()
   })
 })
