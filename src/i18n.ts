@@ -52,7 +52,7 @@ const en: Translations = {
   'players.color': 'Color',
   'players.emoji': 'Emoji',
   'players.confirmDeleteTitle': 'Delete this player?',
-  'players.confirmDeleteBody': 'In-progress and completed games keep the player’s name; only future games are affected.',
+  'players.confirmDeleteBody': 'In-progress and completed games keep the player’s name, color, and emoji; only future games are affected.',
 
   'picker.title': 'Choose a player',
   'picker.createTitle': 'Create new player',
@@ -172,7 +172,7 @@ const it: Translations = {
   'players.color': 'Colore',
   'players.emoji': 'Emoji',
   'players.confirmDeleteTitle': 'Eliminare questo giocatore?',
-  'players.confirmDeleteBody': 'Le partite in corso e completate mantengono il nome; solo le future partite sono interessate.',
+  'players.confirmDeleteBody': 'Le partite in corso e completate mantengono nome, colore ed emoji; solo le future partite sono interessate.',
 
   'picker.title': 'Scegli un giocatore',
   'picker.createTitle': 'Crea nuovo giocatore',

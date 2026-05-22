@@ -98,9 +98,17 @@ export function PlayersScreen({ open, onOpenChange, profiles, setProfiles, tr }:
     setConfirmDeleteId(null)
   }
 
+  const handleOpenChange = (next: boolean) => {
+    if (!next) {
+      setEditor(null)
+      setConfirmDeleteId(null)
+    }
+    onOpenChange(next)
+  }
+
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
+      <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{tr('players.title')}</DialogTitle>
