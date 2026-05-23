@@ -15,22 +15,47 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Plus, Minus, Calculator, List, Check, Key } from '@phosphor-icons/react'
+import { Plus, Minus, Calculator, List, Check, Key, UsersThree } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 import { t, LANGUAGES } from '@/i18n'
 import { WinnerOverlay } from '@/components/WinnerOverlay'
 import { PremieraCalc } from '@/components/PremieraCalc'
 import { HandChart } from '@/components/HandChart'
 import { CardValuesLegend } from '@/components/CardValuesLegend'
+import { PlayersScreen } from '@/components/PlayersScreen'
+import { ProfilePicker, ProfileSeatButton } from '@/components/ProfilePicker'
+import {
+  type PlayerProfile,
+  PROFILES_STORAGE_KEY,
+  PROFILE_COLORS,
+} from '@/lib/profiles'
 
 // ── Types ──────────────────────────────────────────────
 
+/**
+ * An in-game player.
+ *
+ * `profileId`/`name`/`color`/`emoji` are snapshotted from the source
+ * {@link PlayerProfile} when the game starts. They intentionally do not
+ * react to later edits or deletions of that profile so completed games stay
+ * stable.
+ */
 type Player = {
+  /** Stable id local to the game (e.g. "player-0"); not the profile id. */
   id: string
+  /** The {@link PlayerProfile.id} this player was created from. */
+  profileId: string
+  /** Snapshot of the profile name at game-start. */
   name: string
+  /** Snapshot of the profile color at game-start. */
+  color: string
+  /** Snapshot of the profile emoji at game-start. */
+  emoji: string
+  /** Running total of points accumulated across banked hands. */
   totalScore: number
 }
 
+/** Per-player flags recorded for one banked hand, plus this hand's scopa count. */
 type HandCategoryDetail = {
   cards: boolean
   coins: boolean
@@ -39,13 +64,19 @@ type HandCategoryDetail = {
   scopa: number
 }
 
+/** A single row in a game's hand history, produced by {@link App.bankHand}. */
 type HandHistoryEntry = {
+  /** 1-based hand number within the game. */
   handNumber: number
+  /** Points awarded to each player keyed by `Player.id`. */
   scores: Record<string, number>
+  /** Which categories each player won this hand, keyed by `Player.id`. */
   categories: Record<string, HandCategoryDetail>
+  /** Unix-ms timestamp the hand was banked. */
   timestamp: number
 }
 
+/** An active or recently-active game session held in localStorage. */
 type Game = {
   id: string
   players: Player[]
@@ -58,32 +89,27 @@ type Game = {
   createdAt: number
 }
 
+/**
+ * A finished game retained for the history view.
+ *
+ * Player metadata is duplicated here so the history view stays correct even
+ * if the source profiles are later renamed or deleted.
+ */
 type CompletedGame = {
   id: string
-  players: { name: string; score: number }[]
+  players: { name: string; score: number; profileId: string; color: string; emoji: string }[]
   winnerName: string
   completedAt: number
 }
 
-// ── Constants ──────────────────────────────────────────
-
-const PLAYER_COLORS = [
-  '#3b82f6', '#ef4444', '#10b981', '#8b5cf6', '#f97316', '#14b8a6',
-]
-
-const OLD_STORAGE_KEYS = [
-  'scopa-players', 'scopa-hand-scopa', 'scopa-hand-cards',
-  'scopa-hand-coins', 'scopa-hand-settebello', 'scopa-hand-premiera',
-  'scopa-hand-history', 'scopa-player-count', 'scopa-player-names',
-  'scopa-premiera-open', 'scopa-premiera-cards',
-]
-
 // ── Helpers ────────────────────────────────────────────
 
+/** Generate a unique id for a {@link Game} or {@link CompletedGame} record. */
 function makeId() {
   return `game-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }
 
+/** Build a zeroed `handScopaScores` map keyed by each player's id. */
 function freshScopaScores(players: Player[]): Record<string, number> {
   const s: Record<string, number> = {}
   players.forEach(p => { s[p.id] = 0 })
@@ -92,16 +118,25 @@ function freshScopaScores(players: Player[]): Record<string, number> {
 
 // ── App ────────────────────────────────────────────────
 
+/**
+ * Root component for the Scopa score tracker.
+ *
+ * Renders the setup screen when no game is active and the gameplay screen
+ * when one is. Persists all state (profiles, games, completed games,
+ * language) to localStorage via {@link useLocalStorage}.
+ */
 export default function App() {
   // Persistent state
   const [games, setGames] = useLocalStorage<Game[]>('scopa-games', [])
   const [activeGameId, setActiveGameId] = useLocalStorage<string | null>('scopa-active-game-id', null)
   const [completedGames, setCompletedGames] = useLocalStorage<CompletedGame[]>('scopa-completed-games', [])
   const [language, setLanguage] = useLocalStorage<string>('scopa-language', 'en')
+  const [profiles, setProfiles] = useLocalStorage<PlayerProfile[]>(PROFILES_STORAGE_KEY, [])
 
   // Setup state
   const [playerCount, setPlayerCount] = useState(2)
-  const [tempPlayerNames, setTempPlayerNames] = useState<string[]>(['', ''])
+  const [selectedProfileIds, setSelectedProfileIds] = useState<(string | null)[]>([null, null])
+  const [pickerSeat, setPickerSeat] = useState<number | null>(null)
 
   // UI state
   const [premieraOpen, setPremieraOpen] = useState(false)
@@ -110,40 +145,88 @@ export default function App() {
   const [renameTempNames, setRenameTempNames] = useState<string[]>([])
   const [historyOpen, setHistoryOpen] = useState(false)
   const [openGamesOpen, setOpenGamesOpen] = useState(false)
+  const [playersScreenOpen, setPlayersScreenOpen] = useState(false)
 
   // Winner state
   const [winnerName, setWinnerName] = useState<string | null>(null)
   const [isTie, setIsTie] = useState(false)
   const [tiedPlayerNames, setTiedPlayerNames] = useState<string[]>([])
 
-  // Translation helper
+  /** Translate `key` using the current language, with optional `{name}`-style interpolation. */
   const tr = (key: string, params?: Record<string, string>) => t(key, language, params)
 
   // Active game derived
   const activeGame = games.find(g => g.id === activeGameId) ?? null
   const gameStarted = activeGame !== null
 
-  // Update active game helper
+  /** Apply `updater` to the active game and persist the result. No-ops if no game is active. */
   const updateGame = (updater: (game: Game) => Game) => {
     setGames(prev => prev.map(g => g.id === activeGameId ? updater(g) : g))
   }
 
   // ── Setup ────────────────────────────────────────────
 
+  /** Resolve a profile id to its current {@link PlayerProfile}, or null if not found. */
+  const profileById = (id: string | null) =>
+    id ? profiles.find(p => p.id === id) ?? null : null
+
+  /**
+   * Change the number of seats on the setup screen, preserving existing
+   * selections for seats that still exist and padding with `null` for any new
+   * seats added.
+   */
   const changePlayerCount = (count: number) => {
     setPlayerCount(count)
-    setTempPlayerNames(prev => {
-      const names = Array.from({ length: count }, (_, i) => prev[i] ?? '')
-      return names
-    })
+    setSelectedProfileIds(prev => Array.from({ length: count }, (_, i) => prev[i] ?? null))
   }
 
+  /** Reset the setup screen to its default state (2 empty seats). */
+  const resetSetup = () => {
+    setPlayerCount(2)
+    setSelectedProfileIds([null, null])
+  }
+
+  /**
+   * Assign a profile to the given seat and close the picker.
+   *
+   * @param seatIndex - Zero-based seat index.
+   * @param profileId - Id of the profile to assign.
+   */
+  const assignProfileToSeat = (seatIndex: number, profileId: string) => {
+    setSelectedProfileIds(prev => {
+      const next = [...prev]
+      next[seatIndex] = profileId
+      return next
+    })
+    setPickerSeat(null)
+  }
+
+  /**
+   * Whether every seat on the setup screen has a profile assigned that still
+   * exists in the profile list. Used to enable the Start Game button.
+   */
+  const allSeatsFilled =
+    selectedProfileIds.length === playerCount &&
+    selectedProfileIds.every(id => id !== null && profiles.some(p => p.id === id))
+
+  /**
+   * Build a fresh {@link Game} from the seat selections and make it the active
+   * game. Each in-game `Player` snapshots its profile's name/color/emoji so
+   * later edits to that profile don't mutate this game's display.
+   */
   const startGame = () => {
-    const newPlayers: Player[] = tempPlayerNames.map((name, idx) => ({
-      id: `player-${idx}`,
-      name: name || tr('setup.playerPlaceholder', { n: String(idx + 1) }),
-      totalScore: 0,
-    }))
+    if (!allSeatsFilled) return
+    const newPlayers: Player[] = selectedProfileIds.map((id, idx) => {
+      const profile = profileById(id)!
+      return {
+        id: `player-${idx}`,
+        profileId: profile.id,
+        name: profile.name,
+        color: profile.color,
+        emoji: profile.emoji,
+        totalScore: 0,
+      }
+    })
     const newGame: Game = {
       id: makeId(),
       players: newPlayers,
@@ -161,6 +244,14 @@ export default function App() {
 
   // ── Game actions ─────────────────────────────────────
 
+  /**
+   * Lock in the current hand: tally per-player points from the category
+   * winners and scopa counts, append a {@link HandHistoryEntry}, then check
+   * for a winner.
+   *
+   * Win condition is `totalScore >= 11` for one player. Ties at >= 11 do not
+   * end the game — the user is prompted to play another hand.
+   */
   const bankHand = () => {
     if (!activeGame) return
     const { players } = activeGame
@@ -224,7 +315,13 @@ export default function App() {
         setIsTie(false)
         setCompletedGames(prev => [...prev, {
           id: makeId(),
-          players: updatedPlayers.map(p => ({ name: p.name, score: p.totalScore })),
+          players: updatedPlayers.map(p => ({
+            name: p.name,
+            score: p.totalScore,
+            profileId: p.profileId,
+            color: p.color,
+            emoji: p.emoji,
+          })),
           winnerName: topPlayers[0].name,
           completedAt: Date.now(),
         }])
@@ -238,6 +335,7 @@ export default function App() {
     }
   }
 
+  /** Adjust the in-progress scopa count for one player, clamped at zero. */
   const adjustScopa = (playerId: string, delta: number) => {
     updateGame(game => ({
       ...game,
@@ -248,6 +346,11 @@ export default function App() {
     }))
   }
 
+  /**
+   * Toggle the winner of a category for the current (un-banked) hand.
+   *
+   * Selecting the same player again clears the category (acts as deselect).
+   */
   const setHandWinner = (category: 'cards' | 'coins' | 'settebello' | 'premiera', playerId: string | null) => {
     updateGame(game => {
       const key = `hand${category.charAt(0).toUpperCase() + category.slice(1)}Winner` as
@@ -257,6 +360,7 @@ export default function App() {
     })
   }
 
+  /** Zero every player's totalScore and clear hand state, keeping the same players. */
   const resetScores = () => {
     updateGame(game => ({
       ...game,
@@ -271,22 +375,24 @@ export default function App() {
     toast.success(tr('toast.gameReset'))
   }
 
+  /** Delete the active game and return to the setup screen. */
   const endGame = () => {
-    OLD_STORAGE_KEYS.forEach(key => {
-      try { window.localStorage.removeItem(key) } catch { /* ignore */ }
-    })
     setGames(prev => prev.filter(g => g.id !== activeGameId))
     setActiveGameId(null)
-    setPlayerCount(2)
-    setTempPlayerNames(['', ''])
+    resetSetup()
     toast.success(tr('toast.gameEnded'))
   }
 
+  /** Switch to a different in-progress game from the open-games list. */
   const switchGame = (gameId: string) => {
     setActiveGameId(gameId)
     setOpenGamesOpen(false)
   }
 
+  /**
+   * Start a fresh game with the same players as the just-finished game.
+   * Replaces the finished game in the games list rather than appending.
+   */
   const newGameSamePlayers = () => {
     if (!activeGame) return
     setGames(prev => prev.filter(g => g.id !== activeGameId))
@@ -308,23 +414,29 @@ export default function App() {
     setIsTie(false)
   }
 
+  /** Discard the just-finished game and return to the setup screen for a fresh seat selection. */
   const newGameNewPlayers = () => {
     setGames(prev => prev.filter(g => g.id !== activeGameId))
     setActiveGameId(null)
-    setPlayerCount(2)
-    setTempPlayerNames(['', ''])
+    resetSetup()
     setWinnerName(null)
     setIsTie(false)
   }
 
   // ── Rename ───────────────────────────────────────────
 
+  /** Open the per-game rename dialog, pre-filled with the active game's player names. */
   const openRenameDialog = () => {
     if (!activeGame) return
     setRenameTempNames(activeGame.players.map(p => p.name))
     setRenameOpen(true)
   }
 
+  /**
+   * Persist the names entered in the rename dialog onto the active game's
+   * players. This only mutates the in-game name snapshot — the underlying
+   * profiles are not affected, so this can be used for one-off "team" names.
+   */
   const saveRenamedPlayers = () => {
     updateGame(game => ({
       ...game,
@@ -339,29 +451,33 @@ export default function App() {
 
   // ── Player button component (#18) ────────────────────
 
+  /**
+   * Pill-style toggle button used inside each scoring category (cards, coins,
+   * settebello, premiera) to mark which player won that category for the
+   * current hand. Uses the player's profile color + emoji.
+   */
   const PlayerButton = ({
     player,
-    playerIndex,
     isSelected,
     onClick,
   }: {
     player: Player
-    playerIndex: number
     isSelected: boolean
     onClick: () => void
   }) => {
-    const color = PLAYER_COLORS[playerIndex % PLAYER_COLORS.length]
+    const color = player.color || PROFILE_COLORS[0]
     return (
       <button
         onClick={onClick}
-        className="px-3 py-1.5 rounded-md border-2 font-medium text-sm transition-colors"
+        className="px-3 py-1.5 rounded-md border-2 font-medium text-sm transition-colors flex items-center gap-1.5"
         style={{
           backgroundColor: isSelected ? color : 'transparent',
           borderColor: color,
           color: isSelected ? '#ffffff' : color,
         }}
       >
-        {player.name}
+        <span>{player.emoji}</span>
+        <span>{player.name}</span>
       </button>
     )
   }
@@ -369,6 +485,12 @@ export default function App() {
   // ── Setup screen ─────────────────────────────────────
 
   if (!gameStarted) {
+    const takenIds = new Set(
+      selectedProfileIds
+        .filter((id, idx) => id !== null && idx !== pickerSeat)
+        .map(id => id as string)
+    )
+
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="w-full max-w-md p-6">
@@ -389,24 +511,33 @@ export default function App() {
                 ))}
               </div>
             </div>
+
             <div>
-              <Label className="text-base font-semibold mb-3 block">{tr('setup.playerNames')}</Label>
+              <div className="flex items-center justify-between mb-3">
+                <Label className="text-base font-semibold">{tr('setup.players')}</Label>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setPlayersScreenOpen(true)}
+                  className="h-auto py-1"
+                >
+                  <UsersThree size={16} className="mr-1" />
+                  {tr('setup.managePlayers')}
+                </Button>
+              </div>
               <div className="space-y-2">
-                {tempPlayerNames.map((name, idx) => (
-                  <Input
+                {Array.from({ length: playerCount }, (_, idx) => (
+                  <ProfileSeatButton
                     key={idx}
-                    placeholder={tr('setup.playerPlaceholder', { n: String(idx + 1) })}
-                    value={name}
-                    onFocus={e => e.target.select()}
-                    onChange={e => {
-                      const newNames = [...tempPlayerNames]
-                      newNames[idx] = e.target.value
-                      setTempPlayerNames(newNames)
-                    }}
+                    profile={profileById(selectedProfileIds[idx] ?? null)}
+                    seatIndex={idx}
+                    onClick={() => setPickerSeat(idx)}
+                    tr={tr}
                   />
                 ))}
               </div>
             </div>
+
             <div className="flex items-center gap-2 text-sm">
               <span className="text-muted-foreground">{tr('menu.language')}:</span>
               {LANGUAGES.map(lang => (
@@ -423,7 +554,7 @@ export default function App() {
                 </button>
               ))}
             </div>
-            <Button onClick={startGame} className="w-full" size="lg">
+            <Button onClick={startGame} disabled={!allSeatsFilled} className="w-full" size="lg">
               {tr('setup.startGame')}
             </Button>
             {games.length > 0 && (
@@ -445,6 +576,26 @@ export default function App() {
             )}
           </div>
         </Card>
+
+        <ProfilePicker
+          open={pickerSeat !== null}
+          onOpenChange={open => !open && setPickerSeat(null)}
+          profiles={profiles}
+          setProfiles={setProfiles}
+          takenIds={takenIds}
+          onPick={profileId => {
+            if (pickerSeat !== null) assignProfileToSeat(pickerSeat, profileId)
+          }}
+          tr={tr}
+        />
+
+        <PlayersScreen
+          open={playersScreenOpen}
+          onOpenChange={setPlayersScreenOpen}
+          profiles={profiles}
+          setProfiles={setProfiles}
+          tr={tr}
+        />
       </div>
     )
   }
@@ -484,10 +635,12 @@ export default function App() {
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuItem onClick={() => {
                 setActiveGameId(null)
-                setPlayerCount(2)
-                setTempPlayerNames(['', ''])
+                resetSetup()
               }}>
                 {tr('menu.newGame')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setPlayersScreenOpen(true)}>
+                {tr('menu.players')}
               </DropdownMenuItem>
               {games.length > 1 && (
                 <DropdownMenuItem onClick={() => setOpenGamesOpen(true)}>
@@ -533,13 +686,14 @@ export default function App() {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-4">
-          {players.map((player, idx) => (
+          {players.map(player => (
             <Card key={player.id} className="p-2 text-center">
               <div
-                className="text-xs sm:text-sm font-medium truncate"
-                style={{ color: PLAYER_COLORS[idx % PLAYER_COLORS.length] }}
+                className="text-xs sm:text-sm font-medium truncate flex items-center justify-center gap-1"
+                style={{ color: player.color }}
               >
-                {player.name}
+                <span>{player.emoji}</span>
+                <span className="truncate">{player.name}</span>
               </div>
               <div className="text-4xl sm:text-5xl font-bold text-primary leading-tight">
                 {player.totalScore}
@@ -556,10 +710,11 @@ export default function App() {
                 {tr('game.scopa')} <span className="font-normal text-muted-foreground">({tr('game.scopaDesc')})</span>
               </Label>
               <div className="grid gap-2">
-                {players.map((player, idx) => (
+                {players.map(player => (
                   <div key={player.id} className="flex items-center justify-between">
-                    <span className="text-sm font-medium" style={{ color: PLAYER_COLORS[idx % PLAYER_COLORS.length] }}>
-                      {player.name}
+                    <span className="text-sm font-medium flex items-center gap-1" style={{ color: player.color }}>
+                      <span>{player.emoji}</span>
+                      <span>{player.name}</span>
                     </span>
                     <div className="flex items-center gap-2">
                       <Button size="sm" variant="outline" onClick={() => adjustScopa(player.id, -1)}>
@@ -582,8 +737,8 @@ export default function App() {
                 {tr('game.cards')} <span className="font-normal text-muted-foreground">({tr('game.cardsDesc')})</span>
               </Label>
               <div className="flex flex-wrap gap-2">
-                {players.map((p, idx) => (
-                  <PlayerButton key={p.id} player={p} playerIndex={idx} isSelected={activeGame.handCardsWinner === p.id} onClick={() => setHandWinner('cards', p.id)} />
+                {players.map(p => (
+                  <PlayerButton key={p.id} player={p} isSelected={activeGame.handCardsWinner === p.id} onClick={() => setHandWinner('cards', p.id)} />
                 ))}
               </div>
             </div>
@@ -593,8 +748,8 @@ export default function App() {
                 {tr('game.coins')} <span className="font-normal text-muted-foreground">({tr('game.coinsDesc')})</span>
               </Label>
               <div className="flex flex-wrap gap-2">
-                {players.map((p, idx) => (
-                  <PlayerButton key={p.id} player={p} playerIndex={idx} isSelected={activeGame.handCoinsWinner === p.id} onClick={() => setHandWinner('coins', p.id)} />
+                {players.map(p => (
+                  <PlayerButton key={p.id} player={p} isSelected={activeGame.handCoinsWinner === p.id} onClick={() => setHandWinner('coins', p.id)} />
                 ))}
               </div>
             </div>
@@ -604,8 +759,8 @@ export default function App() {
                 {tr('game.settebello')} <span className="font-normal text-muted-foreground">({tr('game.settebelloDesc')})</span>
               </Label>
               <div className="flex flex-wrap gap-2">
-                {players.map((p, idx) => (
-                  <PlayerButton key={p.id} player={p} playerIndex={idx} isSelected={activeGame.handSettebelloWinner === p.id} onClick={() => setHandWinner('settebello', p.id)} />
+                {players.map(p => (
+                  <PlayerButton key={p.id} player={p} isSelected={activeGame.handSettebelloWinner === p.id} onClick={() => setHandWinner('settebello', p.id)} />
                 ))}
               </div>
             </div>
@@ -619,8 +774,8 @@ export default function App() {
                 </Button>
               </div>
               <div className="flex flex-wrap gap-2">
-                {players.map((p, idx) => (
-                  <PlayerButton key={p.id} player={p} playerIndex={idx} isSelected={activeGame.handPremieraWinner === p.id} onClick={() => setHandWinner('premiera', p.id)} />
+                {players.map(p => (
+                  <PlayerButton key={p.id} player={p} isSelected={activeGame.handPremieraWinner === p.id} onClick={() => setHandWinner('premiera', p.id)} />
                 ))}
               </div>
             </div>
@@ -646,7 +801,7 @@ export default function App() {
                     {tr('game.hand')} {entry.handNumber}
                   </div>
                   <div className="flex-1 text-xs">
-                    {players.map((p, idx) => {
+                    {players.map(p => {
                       const points = entry.scores[p.id] || 0
                       if (points === 0) return null
                       const cat = entry.categories?.[p.id]
@@ -659,8 +814,8 @@ export default function App() {
                       ].filter(Boolean).join(', ') : ''
                       return (
                         <div key={p.id} className="text-muted-foreground">
-                          <span style={{ color: PLAYER_COLORS[idx % PLAYER_COLORS.length] }} className="font-medium">
-                            {p.name}
+                          <span style={{ color: p.color }} className="font-medium">
+                            {p.emoji} {p.name}
                           </span>
                           {': '}
                           <span className="font-semibold text-foreground">
@@ -737,6 +892,14 @@ export default function App() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <PlayersScreen
+        open={playersScreenOpen}
+        onOpenChange={setPlayersScreenOpen}
+        profiles={profiles}
+        setProfiles={setProfiles}
+        tr={tr}
+      />
 
       <Dialog open={openGamesOpen} onOpenChange={setOpenGamesOpen}>
         <DialogContent className="max-w-md">
