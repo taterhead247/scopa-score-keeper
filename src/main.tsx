@@ -10,8 +10,12 @@ import "./main.css"
 import "./styles/theme.css"
 import "./index.css"
 
-// One-time wipe when introducing Player Profiles (issue #23 Phase 1).
-// Old game data isn't tied to profiles, so we discard it on first load.
+/**
+ * One-time wipe of legacy game data when introducing Player Profiles
+ * (issue #23 Phase 1). Pre-profiles games aren't tied to profile ids and
+ * can't be back-filled, so we drop them on the first launch of this version
+ * and set a sentinel flag so this runs at most once.
+ */
 try {
   if (typeof window !== 'undefined' && !window.localStorage.getItem(PROFILES_MIGRATED_FLAG)) {
     const keysToWipe = [

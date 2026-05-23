@@ -27,6 +27,11 @@ vi.mock('sonner', () => ({
   },
 }))
 
+/**
+ * Test helper: write a fixed set of {@link PlayerProfile} entries straight to
+ * localStorage and mark the migration flag so the app doesn't wipe them on
+ * mount. Returns the profiles so callers can use them in assertions.
+ */
 function seedProfiles(names: string[]): PlayerProfile[] {
   const profiles: PlayerProfile[] = names.map((name, idx) => ({
     id: `profile-test-${idx}`,
@@ -40,6 +45,11 @@ function seedProfiles(names: string[]): PlayerProfile[] {
   return profiles
 }
 
+/**
+ * Test helper: drive the setup screen by clicking each empty seat and
+ * selecting the corresponding profile from the picker, then click Start Game.
+ * Assumes profiles are already seeded via {@link seedProfiles}.
+ */
 function startGameWithProfiles(profiles: PlayerProfile[]) {
   // Each empty seat opens the picker; pick a profile by clicking its name in the dialog.
   for (let i = 0; i < profiles.length; i++) {

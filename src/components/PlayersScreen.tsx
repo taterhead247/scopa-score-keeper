@@ -29,14 +29,26 @@ import {
   pickDefaultEmoji,
 } from '@/lib/profiles'
 
+/** Props for {@link PlayersScreen}. */
 type Props = {
+  /** Whether the dialog is open. */
   open: boolean
+  /** Called when the dialog requests to open or close. */
   onOpenChange: (open: boolean) => void
+  /** Current list of profiles, displayed in the screen. */
   profiles: PlayerProfile[]
+  /** Setter for the profiles list (typically wired to `useLocalStorage`). */
   setProfiles: React.Dispatch<React.SetStateAction<PlayerProfile[]>>
+  /** Translation helper. */
   tr: (key: string, params?: Record<string, string>) => string
 }
 
+/**
+ * Local state of the inline create/edit pane.
+ *
+ * `mode === 'create'` means a new profile is being drafted and `id` is null.
+ * `mode === 'edit'` means we're editing an existing profile, identified by `id`.
+ */
 type EditorState = {
   mode: 'create' | 'edit'
   id: string | null
@@ -45,10 +57,21 @@ type EditorState = {
   emoji: string
 }
 
+/**
+ * Dedicated dialog for managing the player-profile roster (CRUD).
+ *
+ * Renders a list of profiles each with edit/delete buttons, plus an inline
+ * editor pane for create-or-edit and a confirmation prompt for deletion.
+ * State for the editor and the delete-confirm prompt is reset whenever the
+ * dialog closes so reopening starts from a clean slate.
+ *
+ * Reachable from the in-game dropdown menu and the setup screen.
+ */
 export function PlayersScreen({ open, onOpenChange, profiles, setProfiles, tr }: Props) {
   const [editor, setEditor] = useState<EditorState | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
+  /** Open the editor pane in create mode with sensible default color/emoji. */
   const openCreate = () => {
     setEditor({
       mode: 'create',
@@ -59,6 +82,7 @@ export function PlayersScreen({ open, onOpenChange, profiles, setProfiles, tr }:
     })
   }
 
+  /** Open the editor pane in edit mode, pre-filled from the given profile. */
   const openEdit = (profile: PlayerProfile) => {
     setEditor({
       mode: 'edit',
@@ -69,8 +93,15 @@ export function PlayersScreen({ open, onOpenChange, profiles, setProfiles, tr }:
     })
   }
 
+  /** Discard the editor pane without saving. */
   const closeEditor = () => setEditor(null)
 
+  /**
+   * Persist the current editor pane.
+   *
+   * In create mode this appends a new profile; in edit mode it updates the
+   * profile identified by `editor.id`. No-ops if the name is empty.
+   */
   const saveEditor = () => {
     if (!editor) return
     const name = editor.name.trim()
@@ -93,11 +124,23 @@ export function PlayersScreen({ open, onOpenChange, profiles, setProfiles, tr }:
     setEditor(null)
   }
 
+  /**
+   * Delete the profile with the given id.
+   *
+   * In-progress and completed games keep their snapshotted name/color/emoji
+   * because those values were copied onto the `Player` record when the game
+   * started — see `src/lib/profiles.ts` and the `Player` type in `App.tsx`.
+   */
   const deleteProfile = (id: string) => {
     setProfiles(prev => prev.filter(p => p.id !== id))
     setConfirmDeleteId(null)
   }
 
+  /**
+   * Forward the dialog open/close request, clearing transient UI state on
+   * close so a stale editor pane or delete-confirm prompt doesn't resume on
+   * reopen.
+   */
   const handleOpenChange = (next: boolean) => {
     if (!next) {
       setEditor(null)

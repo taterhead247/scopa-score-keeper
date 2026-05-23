@@ -19,22 +19,39 @@ import {
   pickDefaultEmoji,
 } from '@/lib/profiles'
 
+/** Props for {@link ProfilePicker}. */
 type Props = {
+  /** Whether the picker dialog is open. */
   open: boolean
+  /** Called when the dialog requests to open or close. */
   onOpenChange: (open: boolean) => void
+  /** All profiles available to pick from. */
   profiles: PlayerProfile[]
+  /** Setter for the profiles list, used when inline-creating a new profile. */
   setProfiles: React.Dispatch<React.SetStateAction<PlayerProfile[]>>
+  /** Ids already assigned to other seats; shown disabled in the list. */
   takenIds: Set<string>
+  /** Called with the chosen profile's id once a selection is made. */
   onPick: (profileId: string) => void
+  /** Translation helper. */
   tr: (key: string, params?: Record<string, string>) => string
 }
 
+/** Local state for the inline "create new player" pane inside the picker. */
 type CreateState = {
   name: string
   color: string
   emoji: string
 }
 
+/**
+ * Per-seat profile picker.
+ *
+ * Renders a dialog listing every profile so the user can assign one to the
+ * current seat. Profiles already taken by other seats are shown disabled.
+ * Also offers an inline "New player" pane so the user can create and assign
+ * a profile in one flow without leaving the setup screen.
+ */
 export function ProfilePicker({
   open,
   onOpenChange,
@@ -46,6 +63,7 @@ export function ProfilePicker({
 }: Props) {
   const [creating, setCreating] = useState<CreateState | null>(null)
 
+  /** Switch the dialog into "create new player" mode with sensible defaults. */
   const startCreate = () => {
     setCreating({
       name: '',
@@ -54,8 +72,13 @@ export function ProfilePicker({
     })
   }
 
+  /** Discard the inline create pane and return to the picker list. */
   const cancelCreate = () => setCreating(null)
 
+  /**
+   * Persist the newly drafted profile and immediately assign it to the seat
+   * that opened the picker. No-ops if the name is empty.
+   */
   const saveCreate = () => {
     if (!creating) return
     const name = creating.name.trim()
@@ -72,6 +95,10 @@ export function ProfilePicker({
     onPick(newProfile.id)
   }
 
+  /**
+   * Forward the open/close request, dismissing any in-progress create pane on
+   * close so reopening starts on the picker list rather than mid-create.
+   */
   const handleOpenChange = (next: boolean) => {
     if (!next) setCreating(null)
     onOpenChange(next)
@@ -196,15 +223,27 @@ export function ProfilePicker({
   )
 }
 
+/**
+ * A single seat button shown on the setup screen.
+ *
+ * When `profile` is null the button renders an empty-seat affordance with a
+ * dashed border prompting the user to pick a player. When a profile is
+ * assigned it renders the profile's emoji and name tinted with its color.
+ * Clicking either form opens the {@link ProfilePicker} for that seat.
+ */
 export function ProfileSeatButton({
   profile,
   seatIndex,
   onClick,
   tr,
 }: {
+  /** The profile assigned to this seat, or null for an empty seat. */
   profile: PlayerProfile | null
+  /** Zero-based seat index, used in the empty-seat label "Select Player N". */
   seatIndex: number
+  /** Called when the button is clicked, typically to open the picker. */
   onClick: () => void
+  /** Translation helper. */
   tr: (key: string, params?: Record<string, string>) => string
 }) {
   if (!profile) {
