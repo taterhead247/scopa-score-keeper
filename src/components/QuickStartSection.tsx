@@ -154,6 +154,11 @@ function GroupingRow({
       tabIndex={0}
       onClick={onLoad}
       onKeyDown={e => {
+        // Ignore Enter/Space that originated on a nested focusable element
+        // (the star button). Otherwise keyboard-toggling a favorite would
+        // also load the grouping, since keydown bubbles independently of the
+        // click-level stopPropagation we set on the star button.
+        if (e.currentTarget !== e.target) return
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault()
           onLoad()
@@ -193,6 +198,7 @@ function GroupingRow({
           e.stopPropagation()
           onToggleFavorite()
         }}
+        onKeyDown={e => e.stopPropagation()}
         className="shrink-0 p-2 rounded-md hover:bg-muted transition-colors"
       >
         <Star
