@@ -261,6 +261,7 @@ export default function App() {
           emoji: p.emoji,
         })),
         winnerName: outcome.winner.name,
+        winnerProfileId: outcome.winner.profileId,
         completedAt: Date.now(),
         handHistory: [...activeGame.handHistory, newEntry],
       }])

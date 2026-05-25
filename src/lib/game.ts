@@ -89,6 +89,14 @@ export type CompletedGame = {
     emoji: string
   }[]
   winnerName: string
+  /**
+   * Stable winner identifier. Preferred by stats and history filters over
+   * `winnerName` so two profiles that happen to share a display name don't
+   * collide. Optional because games completed before this field was
+   * introduced won't have it — consumers must fall back to `winnerName` in
+   * that case.
+   */
+  winnerProfileId?: string
   completedAt: number
   /**
    * Full per-hand record. Present on games completed in Phase 2 and later.
@@ -96,6 +104,23 @@ export type CompletedGame = {
    * "category data unknown" rather than as zero.
    */
   handHistory?: HandHistoryEntry[]
+}
+
+/**
+ * Resolve the profile id of the player who won this completed game.
+ *
+ * Prefers the authoritative `winnerProfileId` field. Falls back to a
+ * name-based lookup for legacy games that predate that field: if exactly
+ * one player has that name, returns their profileId; if multiple players
+ * share the name, picks the one with the highest final score as a
+ * best-effort tiebreak; if no name matches, returns null.
+ */
+export function resolveWinnerProfileId(game: CompletedGame): string | null {
+  if (game.winnerProfileId) return game.winnerProfileId
+  const candidates = game.players.filter(p => p.name === game.winnerName)
+  if (candidates.length === 0) return null
+  if (candidates.length === 1) return candidates[0].profileId
+  return candidates.reduce((best, p) => (p.score > best.score ? p : best)).profileId
 }
 
 /**

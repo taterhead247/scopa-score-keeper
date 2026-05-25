@@ -1,4 +1,4 @@
-import type { CompletedGame, HandHistoryEntry } from './game'
+import { resolveWinnerProfileId, type CompletedGame, type HandHistoryEntry } from './game'
 
 /**
  * Aggregated statistics for a single profile across all of their completed
@@ -80,11 +80,6 @@ function chronological(games: CompletedGame[]): CompletedGame[] {
   return [...games].sort((a, b) => a.completedAt - b.completedAt)
 }
 
-/** Return the profileId of the player whose name matches `winnerName` in this game, or null. */
-function winnerProfileId(game: CompletedGame): string | null {
-  const winner = game.players.find(p => p.name === game.winnerName)
-  return winner?.profileId ?? null
-}
 
 // ── Per-profile stats ─────────────────────────────────────
 
@@ -113,7 +108,7 @@ export function computeProfileStats(
   for (const game of ordered) {
     const me = game.players.find(p => p.profileId === profileId)!
     scoreSum += me.score
-    const won = winnerProfileId(game) === profileId
+    const won = resolveWinnerProfileId(game) === profileId
     if (won) {
       wins += 1
       runningWinStreak += 1
@@ -166,7 +161,10 @@ export function computeCategoryStats(
 
   for (const game of withHands) {
     const me = game.players.find(p => p.profileId === profileId)
-    if (!me) continue
+    // Skip the whole game if we can't attribute hands to this profile.
+    // Otherwise we'd inflate gamesUsed and the per-category `total` without
+    // ever incrementing `won`, artificially deflating the rate.
+    if (!me || !me.playerId) continue
     gamesUsed += 1
     for (const hand of game.handHistory as HandHistoryEntry[]) {
       // Count totals only where someone actually won the category this hand
@@ -186,8 +184,7 @@ export function computeCategoryStats(
       if (setteWonByAny) setteTotal += 1
       if (primWonByAny) primTotal += 1
 
-      // Legacy games may not have playerId — skip category attribution for those.
-      const myDetail = me.playerId ? hand.categories[me.playerId] : undefined
+      const myDetail = hand.categories[me.playerId]
       if (myDetail) {
         if (myDetail.cards) cardsWon += 1
         if (myDetail.coins) coinsWon += 1
@@ -260,7 +257,7 @@ export function computeHeadToHead(
     const hasB = game.players.some(p => p.profileId === profileIdB)
     if (!hasA || !hasB) continue
     gamesTogether += 1
-    const winnerId = winnerProfileId(game)
+    const winnerId = resolveWinnerProfileId(game)
     if (winnerId === profileIdA) aWins += 1
     else if (winnerId === profileIdB) bWins += 1
     else otherWins += 1

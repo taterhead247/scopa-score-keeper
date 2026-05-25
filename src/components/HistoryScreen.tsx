@@ -14,11 +14,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import type { CompletedGame } from '@/lib/game'
+import { resolveWinnerProfileId, type CompletedGame } from '@/lib/game'
 import type { PlayerProfile } from '@/lib/profiles'
 
 /** Sort modes offered by the history screen. */
 type SortMode = 'newest' | 'oldest' | 'highest-score'
+
+/**
+ * Lightweight profile shape used to drive the participant + winner filters.
+ *
+ * Built by merging completed-game player snapshots with the live
+ * {@link PlayerProfile} list, so deleted profiles remain filterable while
+ * still-existing profiles show their current name / color / emoji.
+ */
+type FilterProfile = { id: string; name: string; color: string; emoji: string }
 
 type Props = {
   open: boolean
@@ -53,11 +62,28 @@ export function HistoryScreen({
   const [winnerFilter, setWinnerFilter] = useState<string>('any')
   const [sortMode, setSortMode] = useState<SortMode>('newest')
 
-  /** Profiles that have actually played at least one completed game. */
-  const profilesWithGames = useMemo(() => {
-    const seen = new Set<string>()
-    for (const g of completedGames) for (const p of g.players) seen.add(p.profileId)
-    return profiles.filter(p => seen.has(p.id))
+  /**
+   * Profiles that have appeared in at least one completed game.
+   *
+   * Sourced from the completed-game snapshots so deleted profiles still show
+   * up as filter options (their games still exist). When a live profile
+   * still exists, its current name/color/emoji wins over the snapshot.
+   */
+  const profilesWithGames = useMemo<FilterProfile[]>(() => {
+    const byId = new Map<string, FilterProfile>()
+    for (const game of completedGames) {
+      for (const player of game.players) {
+        if (byId.has(player.profileId)) continue
+        const live = profiles.find(p => p.id === player.profileId)
+        byId.set(player.profileId, {
+          id: player.profileId,
+          name: live?.name ?? player.name,
+          color: live?.color ?? player.color,
+          emoji: live?.emoji ?? player.emoji,
+        })
+      }
+    }
+    return [...byId.values()]
   }, [completedGames, profiles])
 
   const filteredSortedGames = useMemo(() => {
@@ -72,10 +98,7 @@ export function HistoryScreen({
       })
     }
     if (winnerFilter !== 'any') {
-      out = out.filter(g => {
-        const winner = g.players.find(p => p.name === g.winnerName)
-        return winner?.profileId === winnerFilter
-      })
+      out = out.filter(game => resolveWinnerProfileId(game) === winnerFilter)
     }
     const sorted = [...out]
     switch (sortMode) {
@@ -136,6 +159,7 @@ export function HistoryScreen({
                     <button
                       key={profile.id}
                       type="button"
+                      aria-pressed={active}
                       onClick={() => toggleParticipant(profile.id)}
                       className="px-2 py-1 rounded-full border-2 text-xs font-medium transition-colors flex items-center gap-1"
                       style={{

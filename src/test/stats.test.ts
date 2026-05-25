@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { CompletedGame, HandHistoryEntry } from '../lib/game'
-import { computeWinOutcome } from '../lib/game'
+import { computeWinOutcome, resolveWinnerProfileId } from '../lib/game'
 import {
   computeProfileStats,
   computeCategoryStats,
@@ -8,6 +8,58 @@ import {
   computeHeadToHead,
   computeHeadToHeadMatrix,
 } from '../lib/stats'
+
+describe('resolveWinnerProfileId', () => {
+  it('uses the winnerProfileId field when present', () => {
+    const game = makeGame({
+      id: 'g', completedAt: 1,
+      players: [
+        { profileId: 'A', name: 'Same', score: 11 },
+        { profileId: 'B', name: 'Same', score: 8 },
+      ],
+      winnerProfileId: 'A',
+    })
+    expect(resolveWinnerProfileId(game)).toBe('A')
+  })
+
+  it('falls back to name match for legacy games without winnerProfileId', () => {
+    const game = makeGame({
+      id: 'g', completedAt: 1,
+      players: [
+        { profileId: 'A', name: 'Mario', score: 11 },
+        { profileId: 'B', name: 'Luigi', score: 8 },
+      ],
+      winnerProfileId: 'A',
+      recordWinnerProfileId: false,
+    })
+    expect(resolveWinnerProfileId(game)).toBe('A')
+  })
+
+  it('on legacy games with colliding names, tiebreaks by highest final score', () => {
+    const game = makeGame({
+      id: 'g', completedAt: 1,
+      players: [
+        { profileId: 'A', name: 'Same', score: 11 },
+        { profileId: 'B', name: 'Same', score: 8 },
+      ],
+      winnerProfileId: 'A',
+      recordWinnerProfileId: false,
+    })
+    expect(resolveWinnerProfileId(game)).toBe('A')
+  })
+
+  it('returns null when no player matches the winner name and the field is absent', () => {
+    const game: CompletedGame = {
+      id: 'g',
+      players: [
+        { profileId: 'A', name: 'A', score: 11, color: '#000', emoji: '🎲' },
+      ],
+      winnerName: 'ghost',
+      completedAt: 1,
+    }
+    expect(resolveWinnerProfileId(game)).toBeNull()
+  })
+})
 
 describe('computeWinOutcome', () => {
   it('returns continue when no player has reached the threshold', () => {
@@ -102,11 +154,20 @@ function makeGame(opts: {
   completedAt: number
   players: Array<{ profileId: string; name: string; score: number }>
   winnerProfileId: string
+  /** Set false to simulate a legacy completed game written before this field existed. */
+  recordWinnerProfileId?: boolean
+  /** Set false to simulate legacy player records without an in-game playerId. */
+  recordPlayerId?: boolean
   hands?: Array<Record<string, { cards?: boolean; coins?: boolean; settebello?: boolean; premiera?: boolean; scopa?: number }>>
 }): CompletedGame {
   const winnerName = opts.players.find(p => p.profileId === opts.winnerProfileId)?.name ?? ''
+  const recordPlayerId = opts.recordPlayerId ?? true
+  // Always synthesize an internal in-game id so we can key handHistory by it;
+  // whether we *expose* it on the player record (i.e. simulate legacy data)
+  // is controlled by `recordPlayerId`.
+  const internalPlayerIds = opts.players.map((_, i) => `player-${i}`)
   const players = opts.players.map((p, i) => ({
-    playerId: `player-${i}`,
+    ...(recordPlayerId ? { playerId: internalPlayerIds[i] } : {}),
     profileId: p.profileId,
     name: p.name,
     score: p.score,
@@ -118,16 +179,17 @@ function makeGame(opts: {
     handHistory = opts.hands.map((hand, handIdx) => {
       const scores: Record<string, number> = {}
       const categories: Record<string, { cards: boolean; coins: boolean; settebello: boolean; premiera: boolean; scopa: number }> = {}
-      players.forEach(pl => {
-        const c = hand[pl.profileId] ?? {}
-        categories[pl.playerId] = {
+      opts.players.forEach((p, i) => {
+        const key = internalPlayerIds[i]
+        const c = hand[p.profileId] ?? {}
+        categories[key] = {
           cards: c.cards ?? false,
           coins: c.coins ?? false,
           settebello: c.settebello ?? false,
           premiera: c.premiera ?? false,
           scopa: c.scopa ?? 0,
         }
-        scores[pl.playerId] = 0 // not used by tested code
+        scores[key] = 0 // not used by tested code
       })
       return {
         handNumber: handIdx + 1,
@@ -141,6 +203,7 @@ function makeGame(opts: {
     id: opts.id,
     players,
     winnerName,
+    ...(opts.recordWinnerProfileId === false ? {} : { winnerProfileId: opts.winnerProfileId }),
     completedAt: opts.completedAt,
     handHistory,
   }
@@ -230,6 +293,36 @@ describe('computeCategoryStats', () => {
       makeGame({ id: 'g1', completedAt: 1, players: [{ profileId: 'A', name: 'A', score: 11 }], winnerProfileId: 'A' }),
     ]
     expect(computeCategoryStats(games, 'A')).toBeUndefined()
+  })
+
+  it('skips games whose player record lacks a playerId (legacy data) so rates are not deflated', () => {
+    const games = [
+      // Legacy game: handHistory present, but the per-player record has no playerId.
+      // It must be excluded — otherwise totals would tick up for categories someone
+      // won this hand without any matching `won` increments for our profile.
+      makeGame({
+        id: 'g1', completedAt: 1,
+        players: [{ profileId: 'A', name: 'A', score: 11 }, { profileId: 'B', name: 'B', score: 8 }],
+        winnerProfileId: 'A',
+        recordPlayerId: false,
+        hands: [
+          { A: { cards: true, coins: true }, B: {} },
+        ],
+      }),
+      // Modern game with attribution available.
+      makeGame({
+        id: 'g2', completedAt: 2,
+        players: [{ profileId: 'A', name: 'A', score: 11 }, { profileId: 'B', name: 'B', score: 8 }],
+        winnerProfileId: 'A',
+        hands: [
+          { A: { cards: true }, B: { coins: true } },
+        ],
+      }),
+    ]
+    const c = computeCategoryStats(games, 'A')!
+    expect(c.gamesWithHandData).toBe(1)
+    expect(c.cards).toEqual({ won: 1, total: 1, rate: 1 })
+    expect(c.coins).toEqual({ won: 0, total: 1, rate: 0 })
   })
 
   it('computes per-category win rates against hands where the category was claimed', () => {
