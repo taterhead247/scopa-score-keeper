@@ -165,28 +165,30 @@ export function PlayersScreen({ open, onOpenChange, profiles, setProfiles, tr }:
             )}
 
             {profiles.map(profile => (
-              <Card key={profile.id} className="p-3 flex items-center gap-3">
+              <Card key={profile.id} className="flex-row items-center gap-3 p-3">
                 <div
                   className="w-10 h-10 rounded-full flex items-center justify-center text-xl shrink-0"
                   style={{ backgroundColor: profile.color }}
                 >
                   {profile.emoji}
                 </div>
-                <div className="flex-1 font-medium truncate" style={{ color: profile.color }}>
+                <div className="flex-1 min-w-0 font-medium truncate" style={{ color: profile.color }}>
                   {profile.name}
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => openEdit(profile)} aria-label={tr('players.edit')}>
-                  <PencilSimple size={18} />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setConfirmDeleteId(profile.id)}
-                  className="text-destructive hover:text-destructive"
-                  aria-label={tr('players.delete')}
-                >
-                  <Trash size={18} />
-                </Button>
+                <div className="flex items-center gap-0.5 shrink-0">
+                  <Button variant="ghost" size="icon" onClick={() => openEdit(profile)} aria-label={tr('players.edit')}>
+                    <PencilSimple size={18} />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setConfirmDeleteId(profile.id)}
+                    className="text-destructive hover:text-destructive"
+                    aria-label={tr('players.delete')}
+                  >
+                    <Trash size={18} />
+                  </Button>
+                </div>
               </Card>
             ))}
 
