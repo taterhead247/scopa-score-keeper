@@ -9,11 +9,27 @@ type FavoriteRow = {
   created_at: number
 }
 
-/** Convert a row into the app's {@link FavoriteGrouping}, parsing the JSON ids. */
+/**
+ * Convert a row into the app's {@link FavoriteGrouping}, parsing the JSON
+ * ids defensively. We write this column ourselves so malformed JSON shouldn't
+ * happen in practice — but a single corrupt row throwing here would take down
+ * the entire favorites query, so fall back to an empty profileIds list. The
+ * QuickStartSection already hides favorites whose profiles can't be resolved,
+ * so the corrupt row will simply not render.
+ */
 function rowToFavorite(row: FavoriteRow): FavoriteGrouping {
+  let profileIds: string[] = []
+  try {
+    const parsed: unknown = JSON.parse(row.profile_ids)
+    if (Array.isArray(parsed) && parsed.every(v => typeof v === 'string')) {
+      profileIds = parsed
+    }
+  } catch {
+    // Corrupt JSON — fall through to the empty-array default above.
+  }
   return {
     id: row.id,
-    profileIds: JSON.parse(row.profile_ids) as string[],
+    profileIds,
     name: row.name ?? undefined,
     createdAt: row.created_at,
   }
