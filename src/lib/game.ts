@@ -97,3 +97,44 @@ export type CompletedGame = {
    */
   handHistory?: HandHistoryEntry[]
 }
+
+/**
+ * Result of evaluating end-of-hand win conditions for a Scopa game.
+ *
+ * - `kind: 'continue'` — no player has reached the threshold yet.
+ * - `kind: 'win'` — exactly one player has reached the threshold AND
+ *   strictly leads everyone tied for first.
+ * - `kind: 'tie'` — multiple players are tied at the same top score and
+ *   all are at or above the threshold. The game must continue until the
+ *   tie is broken.
+ */
+export type WinOutcome<P extends { totalScore: number }> =
+  | { kind: 'continue' }
+  | { kind: 'win'; winner: P }
+  | { kind: 'tie'; tied: P[] }
+
+/**
+ * Evaluate end-of-hand win conditions.
+ *
+ * A player wins only when BOTH conditions hold:
+ *   a) Their `totalScore` is at or above `threshold`.
+ *   b) They have strictly the highest score (no one is tied with them).
+ *
+ * If 2+ players are tied at the top and at or above the threshold the
+ * outcome is `tie` and the game must continue. If no one has reached the
+ * threshold the outcome is `continue`.
+ *
+ * Pure and type-parametric so it can be unit-tested without dragging in
+ * the rest of the in-game `Player` shape.
+ */
+export function computeWinOutcome<P extends { totalScore: number }>(
+  players: P[],
+  threshold = 11,
+): WinOutcome<P> {
+  const atOrAboveThreshold = players.filter(p => p.totalScore >= threshold)
+  if (atOrAboveThreshold.length === 0) return { kind: 'continue' }
+  const maxScore = Math.max(...atOrAboveThreshold.map(p => p.totalScore))
+  const top = atOrAboveThreshold.filter(p => p.totalScore === maxScore)
+  if (top.length === 1) return { kind: 'win', winner: top[0] }
+  return { kind: 'tie', tied: top }
+}

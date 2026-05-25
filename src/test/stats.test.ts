@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { CompletedGame, HandHistoryEntry } from '../lib/game'
+import { computeWinOutcome } from '../lib/game'
 import {
   computeProfileStats,
   computeCategoryStats,
@@ -7,6 +8,93 @@ import {
   computeHeadToHead,
   computeHeadToHeadMatrix,
 } from '../lib/stats'
+
+describe('computeWinOutcome', () => {
+  it('returns continue when no player has reached the threshold', () => {
+    const players = [
+      { name: 'A', totalScore: 10 },
+      { name: 'B', totalScore: 9 },
+    ]
+    expect(computeWinOutcome(players)).toEqual({ kind: 'continue' })
+  })
+
+  it('returns win when one player has the strictly highest score at threshold', () => {
+    const players = [
+      { name: 'A', totalScore: 11 },
+      { name: 'B', totalScore: 9 },
+    ]
+    const outcome = computeWinOutcome(players)
+    expect(outcome.kind).toBe('win')
+    if (outcome.kind === 'win') expect(outcome.winner.name).toBe('A')
+  })
+
+  it('returns win when one player leads everyone else above threshold', () => {
+    const players = [
+      { name: 'A', totalScore: 15 },
+      { name: 'B', totalScore: 11 },
+    ]
+    const outcome = computeWinOutcome(players)
+    expect(outcome.kind).toBe('win')
+    if (outcome.kind === 'win') expect(outcome.winner.name).toBe('A')
+  })
+
+  it('returns tie when two players are tied at the threshold', () => {
+    const players = [
+      { name: 'A', totalScore: 11 },
+      { name: 'B', totalScore: 11 },
+    ]
+    const outcome = computeWinOutcome(players)
+    expect(outcome.kind).toBe('tie')
+    if (outcome.kind === 'tie') {
+      expect(outcome.tied.map(p => p.name).sort()).toEqual(['A', 'B'])
+    }
+  })
+
+  it('returns tie when two players are tied above threshold', () => {
+    const players = [
+      { name: 'A', totalScore: 13 },
+      { name: 'B', totalScore: 13 },
+      { name: 'C', totalScore: 8 },
+    ]
+    const outcome = computeWinOutcome(players)
+    expect(outcome.kind).toBe('tie')
+    if (outcome.kind === 'tie') {
+      expect(outcome.tied.map(p => p.name).sort()).toEqual(['A', 'B'])
+    }
+  })
+
+  it('returns tie for three-way ties at the top', () => {
+    const players = [
+      { name: 'A', totalScore: 12 },
+      { name: 'B', totalScore: 12 },
+      { name: 'C', totalScore: 12 },
+    ]
+    const outcome = computeWinOutcome(players)
+    expect(outcome.kind).toBe('tie')
+    if (outcome.kind === 'tie') expect(outcome.tied.length).toBe(3)
+  })
+
+  it('returns win when a player above threshold strictly leads the tied second-place pack', () => {
+    const players = [
+      { name: 'A', totalScore: 14 },
+      { name: 'B', totalScore: 11 },
+      { name: 'C', totalScore: 11 },
+    ]
+    const outcome = computeWinOutcome(players)
+    expect(outcome.kind).toBe('win')
+    if (outcome.kind === 'win') expect(outcome.winner.name).toBe('A')
+  })
+
+  it('ignores players below threshold even if they are tied with the leader at a sub-threshold score', () => {
+    // Pathological: leader is at 9 (below threshold), tied with another player.
+    // Still continue — no one has crossed the line.
+    const players = [
+      { name: 'A', totalScore: 9 },
+      { name: 'B', totalScore: 9 },
+    ]
+    expect(computeWinOutcome(players)).toEqual({ kind: 'continue' })
+  })
+})
 
 /** Build a CompletedGame for tests with minimal boilerplate. */
 function makeGame(opts: {

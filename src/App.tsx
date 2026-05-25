@@ -38,6 +38,7 @@ import type {
   Game,
   CompletedGame,
 } from '@/lib/game'
+import { computeWinOutcome } from '@/lib/game'
 
 // ── Helpers ────────────────────────────────────────────
 
@@ -242,34 +243,33 @@ export default function App() {
 
     setGames(prev => prev.map(g => g.id === activeGameId ? updatedGame : g))
 
-    // Check for winner / tie (>= 11)
-    const playersOver11 = updatedPlayers.filter(p => p.totalScore >= 11)
-    if (playersOver11.length > 0) {
-      const maxScore = Math.max(...playersOver11.map(p => p.totalScore))
-      const topPlayers = playersOver11.filter(p => p.totalScore === maxScore)
-
-      if (topPlayers.length === 1) {
-        setWinnerName(topPlayers[0].name)
-        setIsTie(false)
-        setCompletedGames(prev => [...prev, {
-          id: makeId(),
-          players: updatedPlayers.map(p => ({
-            playerId: p.id,
-            profileId: p.profileId,
-            name: p.name,
-            score: p.totalScore,
-            color: p.color,
-            emoji: p.emoji,
-          })),
-          winnerName: topPlayers[0].name,
-          completedAt: Date.now(),
-          handHistory: [...activeGame.handHistory, newEntry],
-        }])
-      } else {
-        setIsTie(true)
-        setTiedPlayerNames(topPlayers.map(p => p.name))
-        toast.info(tr('winner.tie'))
-      }
+    // Check for winner / tie. A win requires reaching 11+ AND strictly the
+    // highest score; ties at the top keep the game open.
+    const outcome = computeWinOutcome(updatedPlayers)
+    if (outcome.kind === 'win') {
+      setWinnerName(outcome.winner.name)
+      setIsTie(false)
+      setTiedPlayerNames([])
+      setCompletedGames(prev => [...prev, {
+        id: makeId(),
+        players: updatedPlayers.map(p => ({
+          playerId: p.id,
+          profileId: p.profileId,
+          name: p.name,
+          score: p.totalScore,
+          color: p.color,
+          emoji: p.emoji,
+        })),
+        winnerName: outcome.winner.name,
+        completedAt: Date.now(),
+        handHistory: [...activeGame.handHistory, newEntry],
+      }])
+    } else if (outcome.kind === 'tie') {
+      // Defensive: clear any stale winner state so the overlay shows tie, not winner.
+      setWinnerName(null)
+      setIsTie(true)
+      setTiedPlayerNames(outcome.tied.map(p => p.name))
+      toast.info(tr('winner.tie'))
     } else {
       toast.success(tr('toast.handBanked'))
     }
@@ -497,6 +497,15 @@ export default function App() {
             <Button onClick={startGame} disabled={!allSeatsFilled} className="w-full" size="lg">
               {tr('setup.startGame')}
             </Button>
+            {completedGames.length > 0 && (
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => setStatisticsOpen(true)}
+              >
+                {tr('menu.statistics')}
+              </Button>
+            )}
             {games.length > 0 && (
               <div className="pt-2 border-t border-border">
                 <Label className="text-sm text-muted-foreground mb-2 block">{tr('menu.openGames')}</Label>
@@ -534,6 +543,13 @@ export default function App() {
           onOpenChange={setPlayersScreenOpen}
           profiles={profiles}
           setProfiles={setProfiles}
+          tr={tr}
+        />
+
+        <StatisticsScreen
+          open={statisticsOpen}
+          onOpenChange={setStatisticsOpen}
+          completedGames={completedGames}
           tr={tr}
         />
       </div>
