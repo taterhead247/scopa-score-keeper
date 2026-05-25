@@ -16,6 +16,16 @@ import { DB_NAME, SCHEMA_STATEMENTS, SCHEMA_VERSION, SETTINGS_KEYS } from './sch
 let dbConnection: SQLiteDBConnection | null = null
 let initPromise: Promise<void> | null = null
 
+/**
+ * Whether the runtime is the web build. On web, every write needs to be
+ * followed by `sqlite.saveToStore(...)` to flush the in-memory sql.js
+ * database back to its IndexedDB-backed store — otherwise the data is
+ * lost on the next page load. On native, writes go straight to disk and
+ * `saveToStore` is a no-op (but we skip the call entirely to avoid the
+ * round-trip).
+ */
+let isWebPlatform = false
+
 /** The shared connection manager from the plugin. */
 const sqlite = new SQLiteConnection(CapacitorSQLite)
 
@@ -32,6 +42,7 @@ export async function initDatabase(): Promise<void> {
   if (initPromise) return initPromise
   initPromise = (async () => {
     const platform = Capacitor.getPlatform()
+    isWebPlatform = platform === 'web'
     if (platform === 'web') {
       // Lazy-import so the jeep-sqlite web component isn't bundled into the
       // native build (where it isn't used).
@@ -95,7 +106,21 @@ export async function closeDatabase(): Promise<void> {
     await sqlite.closeConnection(DB_NAME, false)
     dbConnection = null
   }
+  isWebPlatform = false
   initPromise = null
+}
+
+/**
+ * On web, flush in-memory writes to the IndexedDB-backed store. Called
+ * automatically by {@link runStatement} and {@link runTransaction}; safe
+ * to call externally if a future code path bypasses those helpers.
+ *
+ * No-op on native — writes there go straight to disk and the underlying
+ * plugin doesn't even implement `saveToStore` on those platforms.
+ */
+export async function flushWrites(): Promise<void> {
+  if (!isWebPlatform) return
+  await sqlite.saveToStore(DB_NAME)
 }
 
 /**
@@ -111,6 +136,7 @@ export async function queryRows<T>(sql: string, params: unknown[] = []): Promise
 /**
  * Convenience wrapper around `db.run` for INSERT / UPDATE / DELETE. Returns
  * `lastId` for cases where we just inserted a row with an AUTOINCREMENT id.
+ * Automatically flushes the write to the web store via {@link flushWrites}.
  */
 export async function runStatement(
   sql: string,
@@ -120,12 +146,14 @@ export async function runStatement(
   const result = await db.run(sql, params as never[])
   const changes = result.changes?.changes ?? 0
   const lastId = result.changes?.lastId ?? 0
+  await flushWrites()
   return { changes, lastId }
 }
 
 /**
  * Run a set of related statements atomically as a transaction. Used for the
  * multi-table writes that record a banked hand or finalize a completed game.
+ * Automatically flushes the write to the web store via {@link flushWrites}.
  *
  * Each entry is `[sql, params]`. On any failure the whole set rolls back.
  */
@@ -134,4 +162,5 @@ export async function runTransaction(
 ): Promise<void> {
   const db = getDb()
   await db.executeSet(statements as never[])
+  await flushWrites()
 }
