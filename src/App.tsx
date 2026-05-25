@@ -24,83 +24,21 @@ import { HandChart } from '@/components/HandChart'
 import { CardValuesLegend } from '@/components/CardValuesLegend'
 import { PlayersScreen } from '@/components/PlayersScreen'
 import { ProfilePicker, ProfileSeatButton } from '@/components/ProfilePicker'
+import { StatisticsScreen } from '@/components/StatisticsScreen'
+import { HistoryScreen } from '@/components/HistoryScreen'
 import {
   type PlayerProfile,
   PROFILES_STORAGE_KEY,
   PROFILE_COLORS,
 } from '@/lib/profiles'
-
-// ── Types ──────────────────────────────────────────────
-
-/**
- * An in-game player.
- *
- * `profileId`/`name`/`color`/`emoji` are snapshotted from the source
- * {@link PlayerProfile} when the game starts. They intentionally do not
- * react to later edits or deletions of that profile so completed games stay
- * stable.
- */
-type Player = {
-  /** Stable id local to the game (e.g. "player-0"); not the profile id. */
-  id: string
-  /** The {@link PlayerProfile.id} this player was created from. */
-  profileId: string
-  /** Snapshot of the profile name at game-start. */
-  name: string
-  /** Snapshot of the profile color at game-start. */
-  color: string
-  /** Snapshot of the profile emoji at game-start. */
-  emoji: string
-  /** Running total of points accumulated across banked hands. */
-  totalScore: number
-}
-
-/** Per-player flags recorded for one banked hand, plus this hand's scopa count. */
-type HandCategoryDetail = {
-  cards: boolean
-  coins: boolean
-  settebello: boolean
-  premiera: boolean
-  scopa: number
-}
-
-/** A single row in a game's hand history, produced by {@link App.bankHand}. */
-type HandHistoryEntry = {
-  /** 1-based hand number within the game. */
-  handNumber: number
-  /** Points awarded to each player keyed by `Player.id`. */
-  scores: Record<string, number>
-  /** Which categories each player won this hand, keyed by `Player.id`. */
-  categories: Record<string, HandCategoryDetail>
-  /** Unix-ms timestamp the hand was banked. */
-  timestamp: number
-}
-
-/** An active or recently-active game session held in localStorage. */
-type Game = {
-  id: string
-  players: Player[]
-  handScopaScores: Record<string, number>
-  handCardsWinner: string | null
-  handCoinsWinner: string | null
-  handSettebelloWinner: string | null
-  handPremieraWinner: string | null
-  handHistory: HandHistoryEntry[]
-  createdAt: number
-}
-
-/**
- * A finished game retained for the history view.
- *
- * Player metadata is duplicated here so the history view stays correct even
- * if the source profiles are later renamed or deleted.
- */
-type CompletedGame = {
-  id: string
-  players: { name: string; score: number; profileId: string; color: string; emoji: string }[]
-  winnerName: string
-  completedAt: number
-}
+import type {
+  Player,
+  HandCategoryDetail,
+  HandHistoryEntry,
+  Game,
+  CompletedGame,
+} from '@/lib/game'
+import { computeWinOutcome } from '@/lib/game'
 
 // ── Helpers ────────────────────────────────────────────
 
@@ -146,6 +84,7 @@ export default function App() {
   const [historyOpen, setHistoryOpen] = useState(false)
   const [openGamesOpen, setOpenGamesOpen] = useState(false)
   const [playersScreenOpen, setPlayersScreenOpen] = useState(false)
+  const [statisticsOpen, setStatisticsOpen] = useState(false)
 
   // Winner state
   const [winnerName, setWinnerName] = useState<string | null>(null)
@@ -304,32 +243,34 @@ export default function App() {
 
     setGames(prev => prev.map(g => g.id === activeGameId ? updatedGame : g))
 
-    // Check for winner / tie (>= 11)
-    const playersOver11 = updatedPlayers.filter(p => p.totalScore >= 11)
-    if (playersOver11.length > 0) {
-      const maxScore = Math.max(...playersOver11.map(p => p.totalScore))
-      const topPlayers = playersOver11.filter(p => p.totalScore === maxScore)
-
-      if (topPlayers.length === 1) {
-        setWinnerName(topPlayers[0].name)
-        setIsTie(false)
-        setCompletedGames(prev => [...prev, {
-          id: makeId(),
-          players: updatedPlayers.map(p => ({
-            name: p.name,
-            score: p.totalScore,
-            profileId: p.profileId,
-            color: p.color,
-            emoji: p.emoji,
-          })),
-          winnerName: topPlayers[0].name,
-          completedAt: Date.now(),
-        }])
-      } else {
-        setIsTie(true)
-        setTiedPlayerNames(topPlayers.map(p => p.name))
-        toast.info(tr('winner.tie'))
-      }
+    // Check for winner / tie. A win requires reaching 11+ AND strictly the
+    // highest score; ties at the top keep the game open.
+    const outcome = computeWinOutcome(updatedPlayers)
+    if (outcome.kind === 'win') {
+      setWinnerName(outcome.winner.name)
+      setIsTie(false)
+      setTiedPlayerNames([])
+      setCompletedGames(prev => [...prev, {
+        id: makeId(),
+        players: updatedPlayers.map(p => ({
+          playerId: p.id,
+          profileId: p.profileId,
+          name: p.name,
+          score: p.totalScore,
+          color: p.color,
+          emoji: p.emoji,
+        })),
+        winnerName: outcome.winner.name,
+        winnerProfileId: outcome.winner.profileId,
+        completedAt: Date.now(),
+        handHistory: [...activeGame.handHistory, newEntry],
+      }])
+    } else if (outcome.kind === 'tie') {
+      // Defensive: clear any stale winner state so the overlay shows tie, not winner.
+      setWinnerName(null)
+      setIsTie(true)
+      setTiedPlayerNames(outcome.tied.map(p => p.name))
+      toast.info(tr('winner.tie'))
     } else {
       toast.success(tr('toast.handBanked'))
     }
@@ -557,6 +498,15 @@ export default function App() {
             <Button onClick={startGame} disabled={!allSeatsFilled} className="w-full" size="lg">
               {tr('setup.startGame')}
             </Button>
+            {completedGames.length > 0 && (
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => setStatisticsOpen(true)}
+              >
+                {tr('menu.statistics')}
+              </Button>
+            )}
             {games.length > 0 && (
               <div className="pt-2 border-t border-border">
                 <Label className="text-sm text-muted-foreground mb-2 block">{tr('menu.openGames')}</Label>
@@ -594,6 +544,13 @@ export default function App() {
           onOpenChange={setPlayersScreenOpen}
           profiles={profiles}
           setProfiles={setProfiles}
+          tr={tr}
+        />
+
+        <StatisticsScreen
+          open={statisticsOpen}
+          onOpenChange={setStatisticsOpen}
+          completedGames={completedGames}
           tr={tr}
         />
       </div>
@@ -650,6 +607,11 @@ export default function App() {
               {completedGames.length > 0 && (
                 <DropdownMenuItem onClick={() => setHistoryOpen(true)}>
                   {tr('menu.history')}
+                </DropdownMenuItem>
+              )}
+              {completedGames.length > 0 && (
+                <DropdownMenuItem onClick={() => setStatisticsOpen(true)}>
+                  {tr('menu.statistics')}
                 </DropdownMenuItem>
               )}
               <DropdownMenuSeparator />
@@ -865,33 +827,21 @@ export default function App() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
-        <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{tr('menu.history')}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 mt-2">
-            {completedGames.length === 0 && (
-              <p className="text-sm text-muted-foreground">{tr('history.noGames')}</p>
-            )}
-            {completedGames.slice().reverse().map(game => (
-              <Card key={game.id} className="p-3">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="font-bold text-sm">🏆 {game.winnerName}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {new Date(game.completedAt).toLocaleDateString(language === 'it' ? 'it-IT' : 'en-US', {
-                      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
-                    })}
-                  </span>
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {game.players.map(p => `${p.name} (${p.score})`).join(', ')}
-                </div>
-              </Card>
-            ))}
-          </div>
-        </DialogContent>
-      </Dialog>
+      <HistoryScreen
+        open={historyOpen}
+        onOpenChange={setHistoryOpen}
+        completedGames={completedGames}
+        profiles={profiles}
+        language={language}
+        tr={tr}
+      />
+
+      <StatisticsScreen
+        open={statisticsOpen}
+        onOpenChange={setStatisticsOpen}
+        completedGames={completedGames}
+        tr={tr}
+      />
 
       <PlayersScreen
         open={playersScreenOpen}
