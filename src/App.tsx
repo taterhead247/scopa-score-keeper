@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useLocalStorage } from '@/hooks/use-local-storage'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -27,23 +26,27 @@ import { ProfilePicker, ProfileSeatButton } from '@/components/ProfilePicker'
 import { StatisticsScreen } from '@/components/StatisticsScreen'
 import { HistoryScreen } from '@/components/HistoryScreen'
 import { QuickStartSection } from '@/components/QuickStartSection'
-import {
-  type PlayerProfile,
-  PROFILES_STORAGE_KEY,
-  PROFILE_COLORS,
-} from '@/lib/profiles'
-import type {
-  Player,
-  HandCategoryDetail,
-  HandHistoryEntry,
-  Game,
-  CompletedGame,
-} from '@/lib/game'
+import { PROFILE_COLORS } from '@/lib/profiles'
+import type { Player, HandCategoryDetail, Game } from '@/lib/game'
 import { computeWinOutcome } from '@/lib/game'
+import { SETTINGS_KEYS } from '@/lib/db'
 import {
-  type FavoriteGrouping,
-  FAVORITE_GROUPINGS_STORAGE_KEY,
-} from '@/lib/groupings'
+  useProfilesQuery,
+  useFavoritesQuery,
+  useActiveGamesQuery,
+  useCompletedGamesQuery,
+  useSettingQuery,
+  useSetSettingMutation,
+  useDeleteSettingMutation,
+  useCreateGameMutation,
+  useSetHandCategoryWinnerMutation,
+  useSetHandScopaScoreMutation,
+  useBankHandMutation,
+  useCompleteGameMutation,
+  useResetGameMutation,
+  useDeleteGameMutation,
+  useRenameGamePlayersMutation,
+} from '@/lib/db/hooks'
 
 // ── Helpers ────────────────────────────────────────────
 
@@ -69,18 +72,45 @@ function freshScopaScores(players: Player[]): Record<string, number> {
  * language) to localStorage via {@link useLocalStorage}.
  */
 export default function App() {
-  // Persistent state
-  const [games, setGames] = useLocalStorage<Game[]>('scopa-games', [])
-  const [activeGameId, setActiveGameId] = useLocalStorage<string | null>('scopa-active-game-id', null)
-  const [completedGames, setCompletedGames] = useLocalStorage<CompletedGame[]>('scopa-completed-games', [])
-  const [language, setLanguage] = useLocalStorage<string>('scopa-language', 'en')
-  const [profiles, setProfiles] = useLocalStorage<PlayerProfile[]>(PROFILES_STORAGE_KEY, [])
-  const [favoriteGroupings, setFavoriteGroupings] = useLocalStorage<FavoriteGrouping[]>(
-    FAVORITE_GROUPINGS_STORAGE_KEY,
-    [],
-  )
+  // Persistent state via SQLite-backed queries (TanStack Query reactivity).
+  const profilesQuery = useProfilesQuery()
+  const favoritesQuery = useFavoritesQuery()
+  const gamesQuery = useActiveGamesQuery()
+  const completedGamesQuery = useCompletedGamesQuery()
+  const activeGameIdQuery = useSettingQuery(SETTINGS_KEYS.activeGameId)
+  const languageQuery = useSettingQuery(SETTINGS_KEYS.language)
 
-  // Setup state
+  const profiles = profilesQuery.data ?? []
+  const favoriteGroupings = favoritesQuery.data ?? []
+  const games = gamesQuery.data ?? []
+  const completedGames = completedGamesQuery.data ?? []
+  const activeGameId = activeGameIdQuery.data ?? null
+  const language = languageQuery.data ?? 'en'
+
+  // Mutations: each handler below picks the one it needs.
+  const setSettingMut = useSetSettingMutation()
+  const deleteSettingMut = useDeleteSettingMutation()
+  const createGameMut = useCreateGameMutation()
+  const setCategoryWinnerMut = useSetHandCategoryWinnerMutation()
+  const setScopaScoreMut = useSetHandScopaScoreMutation()
+  const bankHandMut = useBankHandMutation()
+  const completeGameMut = useCompleteGameMutation()
+  const resetGameMut = useResetGameMutation()
+  const deleteGameMut = useDeleteGameMutation()
+  const renameGamePlayersMut = useRenameGamePlayersMutation()
+
+  /** Persist the active game id, clearing when null. */
+  const setActiveGameId = (id: string | null) => {
+    if (id === null) deleteSettingMut.mutate(SETTINGS_KEYS.activeGameId)
+    else setSettingMut.mutate({ key: SETTINGS_KEYS.activeGameId, value: id })
+  }
+
+  /** Persist the language preference. */
+  const setLanguage = (code: string) => {
+    setSettingMut.mutate({ key: SETTINGS_KEYS.language, value: code })
+  }
+
+  // Setup state (still in-memory; lost on reload, which is fine for a draft selection)
   const [playerCount, setPlayerCount] = useState(2)
   const [selectedProfileIds, setSelectedProfileIds] = useState<(string | null)[]>([null, null])
   const [pickerSeat, setPickerSeat] = useState<number | null>(null)
@@ -106,11 +136,6 @@ export default function App() {
   // Active game derived
   const activeGame = games.find(g => g.id === activeGameId) ?? null
   const gameStarted = activeGame !== null
-
-  /** Apply `updater` to the active game and persist the result. No-ops if no game is active. */
-  const updateGame = (updater: (game: Game) => Game) => {
-    setGames(prev => prev.map(g => g.id === activeGameId ? updater(g) : g))
-  }
 
   // ── Setup ────────────────────────────────────────────
 
@@ -169,9 +194,11 @@ export default function App() {
     selectedProfileIds.every(id => id !== null && profiles.some(p => p.id === id))
 
   /**
-   * Build a fresh {@link Game} from the seat selections and make it the active
-   * game. Each in-game `Player` snapshots its profile's name/color/emoji so
-   * later edits to that profile don't mutate this game's display.
+   * Build a fresh {@link Game} from the seat selections, persist it via
+   * {@link useCreateGameMutation}, and make it the active game.
+   *
+   * The mutation owns both the insert into `games` + `game_players` AND
+   * setting the `active_game_id` setting in one atomic flow.
    */
   const startGame = () => {
     if (!allSeatsFilled) return
@@ -197,94 +224,63 @@ export default function App() {
       handHistory: [],
       createdAt: Date.now(),
     }
-    setGames(prev => [...prev, newGame])
-    setActiveGameId(newGame.id)
+    createGameMut.mutate(newGame)
   }
 
   // ── Game actions ─────────────────────────────────────
 
   /**
-   * Lock in the current hand: tally per-player points from the category
-   * winners and scopa counts, append a {@link HandHistoryEntry}, then check
-   * for a winner.
-   *
-   * Win condition is `totalScore >= 11` for one player. Ties at >= 11 do not
-   * end the game — the user is prompted to play another hand.
+   * Lock in the current hand: compute per-player scores from the current
+   * category winners + scopa counts, persist the hand via {@link bankHandMut},
+   * then evaluate {@link computeWinOutcome}. On a strict win we keep the
+   * game ACTIVE in the DB (completion happens when the user resolves the
+   * overlay via "New Game (Same/New Players)") — that keeps the gameplay
+   * screen mounted under the overlay rather than flickering to setup.
    */
   const bankHand = () => {
     if (!activeGame) return
     const { players } = activeGame
 
-    const handScores: Record<string, number> = {}
-    const categories: Record<string, HandCategoryDetail> = {}
-
-    players.forEach(p => {
+    const perPlayer = players.map(p => {
       const scopa = activeGame.handScopaScores[p.id] || 0
-      let score = scopa
       const cat: HandCategoryDetail = {
-        cards: false,
-        coins: false,
-        settebello: false,
-        premiera: false,
+        cards: activeGame.handCardsWinner === p.id,
+        coins: activeGame.handCoinsWinner === p.id,
+        settebello: activeGame.handSettebelloWinner === p.id,
+        premiera: activeGame.handPremieraWinner === p.id,
         scopa,
       }
-
-      if (activeGame.handCardsWinner === p.id) { score += 1; cat.cards = true }
-      if (activeGame.handCoinsWinner === p.id) { score += 1; cat.coins = true }
-      if (activeGame.handSettebelloWinner === p.id) { score += 1; cat.settebello = true }
-      if (activeGame.handPremieraWinner === p.id) { score += 1; cat.premiera = true }
-
-      handScores[p.id] = score
-      categories[p.id] = cat
+      const score =
+        scopa +
+        (cat.cards ? 1 : 0) +
+        (cat.coins ? 1 : 0) +
+        (cat.settebello ? 1 : 0) +
+        (cat.premiera ? 1 : 0)
+      return {
+        playerId: p.id,
+        score,
+        categories: cat,
+        newTotal: p.totalScore + score,
+      }
     })
 
-    const updatedPlayers = players.map(p => ({
-      ...p,
-      totalScore: p.totalScore + (handScores[p.id] || 0),
-    }))
-
-    const newEntry: HandHistoryEntry = {
+    bankHandMut.mutate({
+      gameId: activeGame.id,
       handNumber: activeGame.handHistory.length + 1,
-      scores: handScores,
-      categories,
       timestamp: Date.now(),
-    }
+      perPlayer,
+    })
 
-    const updatedGame: Game = {
-      ...activeGame,
-      players: updatedPlayers,
-      handScopaScores: freshScopaScores(updatedPlayers),
-      handCardsWinner: null,
-      handCoinsWinner: null,
-      handSettebelloWinner: null,
-      handPremieraWinner: null,
-      handHistory: [...activeGame.handHistory, newEntry],
-    }
+    const updatedPlayers = players.map(p => {
+      const me = perPlayer.find(x => x.playerId === p.id)!
+      return { ...p, totalScore: me.newTotal }
+    })
 
-    setGames(prev => prev.map(g => g.id === activeGameId ? updatedGame : g))
-
-    // Check for winner / tie. A win requires reaching 11+ AND strictly the
-    // highest score; ties at the top keep the game open.
     const outcome = computeWinOutcome(updatedPlayers)
     if (outcome.kind === 'win') {
       setWinnerName(outcome.winner.name)
       setIsTie(false)
       setTiedPlayerNames([])
-      setCompletedGames(prev => [...prev, {
-        id: makeId(),
-        players: updatedPlayers.map(p => ({
-          playerId: p.id,
-          profileId: p.profileId,
-          name: p.name,
-          score: p.totalScore,
-          color: p.color,
-          emoji: p.emoji,
-        })),
-        winnerName: outcome.winner.name,
-        winnerProfileId: outcome.winner.profileId,
-        completedAt: Date.now(),
-        handHistory: [...activeGame.handHistory, newEntry],
-      }])
     } else if (outcome.kind === 'tie') {
       // Defensive: clear any stale winner state so the overlay shows tie, not winner.
       setWinnerName(null)
@@ -298,13 +294,13 @@ export default function App() {
 
   /** Adjust the in-progress scopa count for one player, clamped at zero. */
   const adjustScopa = (playerId: string, delta: number) => {
-    updateGame(game => ({
-      ...game,
-      handScopaScores: {
-        ...game.handScopaScores,
-        [playerId]: Math.max(0, (game.handScopaScores[playerId] || 0) + delta),
-      },
-    }))
+    if (!activeGame) return
+    const current = activeGame.handScopaScores[playerId] || 0
+    setScopaScoreMut.mutate({
+      gameId: activeGame.id,
+      playerId,
+      count: Math.max(0, current + delta),
+    })
   }
 
   /**
@@ -312,33 +308,47 @@ export default function App() {
    *
    * Selecting the same player again clears the category (acts as deselect).
    */
-  const setHandWinner = (category: 'cards' | 'coins' | 'settebello' | 'premiera', playerId: string | null) => {
-    updateGame(game => {
-      const key = `hand${category.charAt(0).toUpperCase() + category.slice(1)}Winner` as
-        'handCardsWinner' | 'handCoinsWinner' | 'handSettebelloWinner' | 'handPremieraWinner'
-      const newValue = game[key] === playerId ? null : playerId
-      return { ...game, [key]: newValue }
-    })
+  const setHandWinner = (
+    category: 'cards' | 'coins' | 'settebello' | 'premiera',
+    playerId: string | null,
+  ) => {
+    if (!activeGame) return
+    const currentKey = `hand${category.charAt(0).toUpperCase() + category.slice(1)}Winner` as
+      'handCardsWinner' | 'handCoinsWinner' | 'handSettebelloWinner' | 'handPremieraWinner'
+    const newValue = activeGame[currentKey] === playerId ? null : playerId
+    setCategoryWinnerMut.mutate({ gameId: activeGame.id, category, playerId: newValue })
   }
 
   /** Zero every player's totalScore and clear hand state, keeping the same players. */
   const resetScores = () => {
-    updateGame(game => ({
-      ...game,
-      players: game.players.map(p => ({ ...p, totalScore: 0 })),
-      handScopaScores: freshScopaScores(game.players),
-      handCardsWinner: null,
-      handCoinsWinner: null,
-      handSettebelloWinner: null,
-      handPremieraWinner: null,
-      handHistory: [],
-    }))
+    if (!activeGame) return
+    resetGameMut.mutate(activeGame.id)
     toast.success(tr('toast.gameReset'))
+  }
+
+  /**
+   * Helper: finalize the currently-active game in the DB and clear the
+   * winner overlay state. Used by both new-game actions after a win.
+   */
+  const finalizeActiveGameIfWon = () => {
+    if (!activeGame || winnerName === null) return
+    const winnerPlayer = activeGame.players.find(p => p.name === winnerName)
+    if (winnerPlayer) {
+      completeGameMut.mutate({
+        gameId: activeGame.id,
+        winner: { profileId: winnerPlayer.profileId, name: winnerPlayer.name },
+        completedAt: Date.now(),
+      })
+    }
+    setWinnerName(null)
+    setIsTie(false)
+    setTiedPlayerNames([])
   }
 
   /** Delete the active game and return to the setup screen. */
   const endGame = () => {
-    setGames(prev => prev.filter(g => g.id !== activeGameId))
+    if (!activeGame) return
+    deleteGameMut.mutate(activeGame.id)
     setActiveGameId(null)
     resetSetup()
     toast.success(tr('toast.gameEnded'))
@@ -352,11 +362,12 @@ export default function App() {
 
   /**
    * Start a fresh game with the same players as the just-finished game.
-   * Replaces the finished game in the games list rather than appending.
+   * Completes the won game in the DB (preserves it in history) and creates
+   * a new active game with fresh scores.
    */
   const newGameSamePlayers = () => {
     if (!activeGame) return
-    setGames(prev => prev.filter(g => g.id !== activeGameId))
+    finalizeActiveGameIfWon()
     const newPlayers: Player[] = activeGame.players.map(p => ({ ...p, totalScore: 0 }))
     const newGame: Game = {
       id: makeId(),
@@ -369,19 +380,17 @@ export default function App() {
       handHistory: [],
       createdAt: Date.now(),
     }
-    setGames(prev => [...prev, newGame])
-    setActiveGameId(newGame.id)
-    setWinnerName(null)
-    setIsTie(false)
+    createGameMut.mutate(newGame)
   }
 
-  /** Discard the just-finished game and return to the setup screen for a fresh seat selection. */
+  /**
+   * Finalize the just-finished game (preserve in history) and return to the
+   * setup screen for a fresh seat selection.
+   */
   const newGameNewPlayers = () => {
-    setGames(prev => prev.filter(g => g.id !== activeGameId))
+    finalizeActiveGameIfWon()
     setActiveGameId(null)
     resetSetup()
-    setWinnerName(null)
-    setIsTie(false)
   }
 
   // ── Rename ───────────────────────────────────────────
@@ -399,13 +408,11 @@ export default function App() {
    * profiles are not affected, so this can be used for one-off "team" names.
    */
   const saveRenamedPlayers = () => {
-    updateGame(game => ({
-      ...game,
-      players: game.players.map((p, idx) => ({
-        ...p,
-        name: renameTempNames[idx] || p.name,
-      })),
-    }))
+    if (!activeGame) return
+    const renames = activeGame.players
+      .map((p, idx) => ({ playerId: p.id, name: renameTempNames[idx] || p.name }))
+      .filter(r => r.name)
+    renameGamePlayersMut.mutate({ gameId: activeGame.id, renames })
     setRenameOpen(false)
     toast.success(tr('toast.namesUpdated'))
   }
@@ -501,7 +508,6 @@ export default function App() {
 
             <QuickStartSection
               favoriteGroupings={favoriteGroupings}
-              setFavoriteGroupings={setFavoriteGroupings}
               completedGames={completedGames}
               profiles={profiles}
               onLoadGrouping={loadGrouping}
@@ -560,7 +566,6 @@ export default function App() {
           open={pickerSeat !== null}
           onOpenChange={open => !open && setPickerSeat(null)}
           profiles={profiles}
-          setProfiles={setProfiles}
           takenIds={takenIds}
           onPick={profileId => {
             if (pickerSeat !== null) assignProfileToSeat(pickerSeat, profileId)
@@ -572,7 +577,6 @@ export default function App() {
           open={playersScreenOpen}
           onOpenChange={setPlayersScreenOpen}
           profiles={profiles}
-          setProfiles={setProfiles}
           tr={tr}
         />
 
@@ -876,7 +880,6 @@ export default function App() {
         open={playersScreenOpen}
         onOpenChange={setPlayersScreenOpen}
         profiles={profiles}
-        setProfiles={setProfiles}
         tr={tr}
       />
 

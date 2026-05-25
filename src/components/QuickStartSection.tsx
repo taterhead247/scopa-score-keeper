@@ -8,12 +8,14 @@ import {
   type FavoriteGrouping,
   type GroupingSourceGame,
 } from '@/lib/groupings'
+import {
+  useInsertFavoriteMutation,
+  useDeleteFavoriteMutation,
+} from '@/lib/db/hooks'
 
 type Props = {
   /** All persisted favorite groupings. */
   favoriteGroupings: FavoriteGrouping[]
-  /** Setter for the favorites list (typically wired to `useLocalStorage`). */
-  setFavoriteGroupings: React.Dispatch<React.SetStateAction<FavoriteGrouping[]>>
   /** Completed-game records used to derive recent groupings. */
   completedGames: GroupingSourceGame[]
   /** All live profiles — used to look up display name/color/emoji per id. */
@@ -37,12 +39,13 @@ type Props = {
  */
 export function QuickStartSection({
   favoriteGroupings,
-  setFavoriteGroupings,
   completedGames,
   profiles,
   onLoadGrouping,
   tr,
 }: Props) {
+  const insertFavoriteMut = useInsertFavoriteMutation()
+  const deleteFavoriteMut = useDeleteFavoriteMutation()
   const recent = useMemo(
     () => computeRecentGroupings(completedGames, profiles, 5),
     [completedGames, profiles],
@@ -74,15 +77,12 @@ export function QuickStartSection({
   const addFavorite = (profileIds: string[]) => {
     const id = groupingId(profileIds)
     if (favoriteIds.has(id)) return
-    setFavoriteGroupings(prev => [
-      ...prev,
-      { id, profileIds: [...profileIds], createdAt: Date.now() },
-    ])
+    insertFavoriteMut.mutate({ id, profileIds: [...profileIds], createdAt: Date.now() })
   }
 
   /** Remove a grouping from favorites by id. */
   const removeFavorite = (id: string) => {
-    setFavoriteGroupings(prev => prev.filter(f => f.id !== id))
+    deleteFavoriteMut.mutate(id)
   }
 
   /** Toggle star icon: favorite a recent, or unfavorite a starred one. */

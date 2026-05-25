@@ -28,6 +28,11 @@ import {
   pickDefaultColor,
   pickDefaultEmoji,
 } from '@/lib/profiles'
+import {
+  useInsertProfileMutation,
+  useUpdateProfileMutation,
+  useDeleteProfileMutation,
+} from '@/lib/db/hooks'
 
 /** Props for {@link PlayersScreen}. */
 type Props = {
@@ -37,8 +42,6 @@ type Props = {
   onOpenChange: (open: boolean) => void
   /** Current list of profiles, displayed in the screen. */
   profiles: PlayerProfile[]
-  /** Setter for the profiles list (typically wired to `useLocalStorage`). */
-  setProfiles: React.Dispatch<React.SetStateAction<PlayerProfile[]>>
   /** Translation helper. */
   tr: (key: string, params?: Record<string, string>) => string
 }
@@ -67,9 +70,12 @@ type EditorState = {
  *
  * Reachable from the in-game dropdown menu and the setup screen.
  */
-export function PlayersScreen({ open, onOpenChange, profiles, setProfiles, tr }: Props) {
+export function PlayersScreen({ open, onOpenChange, profiles, tr }: Props) {
   const [editor, setEditor] = useState<EditorState | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const insertProfileMut = useInsertProfileMutation()
+  const updateProfileMut = useUpdateProfileMutation()
+  const deleteProfileMut = useDeleteProfileMutation()
 
   /** Open the editor pane in create mode with sensible default color/emoji. */
   const openCreate = () => {
@@ -97,9 +103,9 @@ export function PlayersScreen({ open, onOpenChange, profiles, setProfiles, tr }:
   const closeEditor = () => setEditor(null)
 
   /**
-   * Persist the current editor pane.
+   * Persist the current editor pane via the appropriate mutation.
    *
-   * In create mode this appends a new profile; in edit mode it updates the
+   * In create mode this inserts a new profile; in edit mode it updates the
    * profile identified by `editor.id`. No-ops if the name is empty.
    */
   const saveEditor = () => {
@@ -115,11 +121,9 @@ export function PlayersScreen({ open, onOpenChange, profiles, setProfiles, tr }:
         emoji: editor.emoji,
         createdAt: Date.now(),
       }
-      setProfiles(prev => [...prev, newProfile])
+      insertProfileMut.mutate(newProfile)
     } else if (editor.id) {
-      setProfiles(prev => prev.map(p =>
-        p.id === editor.id ? { ...p, name, color: editor.color, emoji: editor.emoji } : p
-      ))
+      updateProfileMut.mutate({ id: editor.id, name, color: editor.color, emoji: editor.emoji })
     }
     setEditor(null)
   }
@@ -127,12 +131,12 @@ export function PlayersScreen({ open, onOpenChange, profiles, setProfiles, tr }:
   /**
    * Delete the profile with the given id.
    *
-   * In-progress and completed games keep their snapshotted name/color/emoji
-   * because those values were copied onto the `Player` record when the game
-   * started — see `src/lib/profiles.ts` and the `Player` type in `App.tsx`.
+   * Historical games keep their snapshotted name/color/emoji because the
+   * SQLite schema's FK uses `ON DELETE SET NULL` — `game_players.profile_id`
+   * becomes NULL but the snapshot fields remain.
    */
   const deleteProfile = (id: string) => {
-    setProfiles(prev => prev.filter(p => p.id !== id))
+    deleteProfileMut.mutate(id)
     setConfirmDeleteId(null)
   }
 
