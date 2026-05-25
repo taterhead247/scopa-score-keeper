@@ -91,6 +91,10 @@ const en: Translations = {
   'picker.createAndSelect': 'Create & select',
   'picker.taken': 'taken',
 
+  'quickstart.title': 'Quick Start',
+  'quickstart.favorite': 'Add to favorites',
+  'quickstart.unfavorite': 'Remove from favorites',
+
   'winner.wins': '{name} wins!',
   'winner.tie': 'Tie! Play another round to settle it.',
   'winner.newGameSame': 'New Game (Same Players)',
@@ -240,6 +244,10 @@ const it: Translations = {
   'picker.createNew': 'Nuovo giocatore',
   'picker.createAndSelect': 'Crea e seleziona',
   'picker.taken': 'in uso',
+
+  'quickstart.title': 'Inizio Rapido',
+  'quickstart.favorite': 'Aggiungi ai preferiti',
+  'quickstart.unfavorite': 'Rimuovi dai preferiti',
 
   'winner.wins': '{name} vince!',
   'winner.tie': 'Pareggio! Giocate un altro giro.',

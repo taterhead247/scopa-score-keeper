@@ -26,6 +26,7 @@ import { PlayersScreen } from '@/components/PlayersScreen'
 import { ProfilePicker, ProfileSeatButton } from '@/components/ProfilePicker'
 import { StatisticsScreen } from '@/components/StatisticsScreen'
 import { HistoryScreen } from '@/components/HistoryScreen'
+import { QuickStartSection } from '@/components/QuickStartSection'
 import {
   type PlayerProfile,
   PROFILES_STORAGE_KEY,
@@ -39,6 +40,10 @@ import type {
   CompletedGame,
 } from '@/lib/game'
 import { computeWinOutcome } from '@/lib/game'
+import {
+  type FavoriteGrouping,
+  FAVORITE_GROUPINGS_STORAGE_KEY,
+} from '@/lib/groupings'
 
 // ── Helpers ────────────────────────────────────────────
 
@@ -70,6 +75,10 @@ export default function App() {
   const [completedGames, setCompletedGames] = useLocalStorage<CompletedGame[]>('scopa-completed-games', [])
   const [language, setLanguage] = useLocalStorage<string>('scopa-language', 'en')
   const [profiles, setProfiles] = useLocalStorage<PlayerProfile[]>(PROFILES_STORAGE_KEY, [])
+  const [favoriteGroupings, setFavoriteGroupings] = useLocalStorage<FavoriteGrouping[]>(
+    FAVORITE_GROUPINGS_STORAGE_KEY,
+    [],
+  )
 
   // Setup state
   const [playerCount, setPlayerCount] = useState(2)
@@ -138,6 +147,17 @@ export default function App() {
       return next
     })
     setPickerSeat(null)
+  }
+
+  /**
+   * Load an entire grouping into the setup seats: resize playerCount to the
+   * grouping size (clamped to 2..6) and fill in the profileIds. Used by the
+   * QuickStart section's recent and favorite groupings.
+   */
+  const loadGrouping = (profileIds: string[]) => {
+    const count = Math.max(2, Math.min(6, profileIds.length))
+    setPlayerCount(count)
+    setSelectedProfileIds(profileIds.slice(0, count))
   }
 
   /**
@@ -478,6 +498,15 @@ export default function App() {
                 ))}
               </div>
             </div>
+
+            <QuickStartSection
+              favoriteGroupings={favoriteGroupings}
+              setFavoriteGroupings={setFavoriteGroupings}
+              completedGames={completedGames}
+              profiles={profiles}
+              onLoadGrouping={loadGrouping}
+              tr={tr}
+            />
 
             <div className="flex items-center gap-2 text-sm">
               <span className="text-muted-foreground">{tr('menu.language')}:</span>
