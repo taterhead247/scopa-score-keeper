@@ -36,6 +36,11 @@ export const SCHEMA_STATEMENTS: string[] = [
     created_at INTEGER NOT NULL
   );`,
 
+  // Note: no FK on winner_profile_id — when a profile is deleted, the
+  // historical winner reference is intentionally preserved so stats can
+  // continue attributing the win. Snapshot fields on related rows
+  // (winner_name on games, name/color/emoji on game_players) keep
+  // human-readable details intact even after the profile is gone.
   `CREATE TABLE IF NOT EXISTS games (
     id TEXT PRIMARY KEY NOT NULL,
     created_at INTEGER NOT NULL,
@@ -45,12 +50,16 @@ export const SCHEMA_STATEMENTS: string[] = [
     hand_cards_winner_player_id TEXT,
     hand_coins_winner_player_id TEXT,
     hand_settebello_winner_player_id TEXT,
-    hand_premiera_winner_player_id TEXT,
-    FOREIGN KEY (winner_profile_id) REFERENCES profiles(id) ON DELETE SET NULL
+    hand_premiera_winner_player_id TEXT
   );`,
 
   `CREATE INDEX IF NOT EXISTS idx_games_completed_at ON games(completed_at);`,
 
+  // Note: no FK on profile_id — same rationale as games.winner_profile_id
+  // above. Player-centric stats need stable profile attribution across
+  // the lifetime of the data, and we already handle missing profiles
+  // gracefully at the UI layer (QuickStartSection filters them out;
+  // HistoryScreen renders the snapshot fields).
   `CREATE TABLE IF NOT EXISTS game_players (
     game_id TEXT NOT NULL,
     player_id TEXT NOT NULL,
@@ -62,14 +71,19 @@ export const SCHEMA_STATEMENTS: string[] = [
     total_score INTEGER NOT NULL DEFAULT 0,
     hand_scopa_score INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (game_id, player_id),
-    FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
-    FOREIGN KEY (profile_id) REFERENCES profiles(id) ON DELETE SET NULL
+    FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
   );`,
 
   `CREATE INDEX IF NOT EXISTS idx_game_players_profile_id ON game_players(profile_id);`,
 
+  // hand_history.id is a TEXT id generated in code (not AUTOINCREMENT)
+  // so the row + its children in hand_scores / hand_categories can be
+  // inserted atomically in a single transaction. With an integer
+  // AUTOINCREMENT we'd have to insert hand_history first to get its
+  // lastId, then insert children separately — a window in which a
+  // dangling parent could exist if the child insert fails.
   `CREATE TABLE IF NOT EXISTS hand_history (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id TEXT PRIMARY KEY NOT NULL,
     game_id TEXT NOT NULL,
     hand_number INTEGER NOT NULL,
     timestamp INTEGER NOT NULL,
@@ -79,7 +93,7 @@ export const SCHEMA_STATEMENTS: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_hand_history_game_id ON hand_history(game_id);`,
 
   `CREATE TABLE IF NOT EXISTS hand_scores (
-    hand_id INTEGER NOT NULL,
+    hand_id TEXT NOT NULL,
     player_id TEXT NOT NULL,
     score INTEGER NOT NULL,
     PRIMARY KEY (hand_id, player_id),
@@ -87,7 +101,7 @@ export const SCHEMA_STATEMENTS: string[] = [
   );`,
 
   `CREATE TABLE IF NOT EXISTS hand_categories (
-    hand_id INTEGER NOT NULL,
+    hand_id TEXT NOT NULL,
     player_id TEXT NOT NULL,
     cards INTEGER NOT NULL DEFAULT 0,
     coins INTEGER NOT NULL DEFAULT 0,

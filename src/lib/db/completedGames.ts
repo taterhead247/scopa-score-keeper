@@ -21,16 +21,16 @@ type GamePlayerRow = {
 }
 
 type HandRow = {
-  id: number
+  id: string
   game_id: string
   hand_number: number
   timestamp: number
 }
 
-type HandScoreRow = { hand_id: number; player_id: string; score: number }
+type HandScoreRow = { hand_id: string; player_id: string; score: number }
 
 type HandCategoryRow = {
-  hand_id: number
+  hand_id: string
   player_id: string
   cards: number
   coins: number
@@ -90,13 +90,13 @@ export async function listCompletedGames(): Promise<CompletedGame[]> {
     if (existing) existing.push(r)
     else handsByGame.set(r.game_id, [r])
   }
-  const scoresByHand = new Map<number, HandScoreRow[]>()
+  const scoresByHand = new Map<string, HandScoreRow[]>()
   for (const r of scoreRows) {
     const existing = scoresByHand.get(r.hand_id)
     if (existing) existing.push(r)
     else scoresByHand.set(r.hand_id, [r])
   }
-  const categoriesByHand = new Map<number, HandCategoryRow[]>()
+  const categoriesByHand = new Map<string, HandCategoryRow[]>()
   for (const r of categoryRows) {
     const existing = categoriesByHand.get(r.hand_id)
     if (existing) existing.push(r)

@@ -41,29 +41,42 @@ const sqlite = new SQLiteConnection(CapacitorSQLite)
 export async function initDatabase(): Promise<void> {
   if (initPromise) return initPromise
   initPromise = (async () => {
-    const platform = Capacitor.getPlatform()
-    isWebPlatform = platform === 'web'
-    if (platform === 'web') {
-      // Lazy-import so the jeep-sqlite web component isn't bundled into the
-      // native build (where it isn't used).
-      const { defineCustomElements } = await import('jeep-sqlite/loader')
-      defineCustomElements(window)
-      // The web store needs a <jeep-sqlite> element in the DOM before init.
-      if (!document.querySelector('jeep-sqlite')) {
-        document.body.appendChild(document.createElement('jeep-sqlite'))
+    try {
+      const platform = Capacitor.getPlatform()
+      isWebPlatform = platform === 'web'
+      if (platform === 'web') {
+        // Lazy-import so the jeep-sqlite web component isn't bundled into the
+        // native build (where it isn't used).
+        const { defineCustomElements } = await import('jeep-sqlite/loader')
+        defineCustomElements(window)
+        // The web store needs a <jeep-sqlite> element in the DOM before init.
+        if (!document.querySelector('jeep-sqlite')) {
+          document.body.appendChild(document.createElement('jeep-sqlite'))
+        }
+        await customElements.whenDefined('jeep-sqlite')
+        await sqlite.initWebStore()
       }
-      await customElements.whenDefined('jeep-sqlite')
-      await sqlite.initWebStore()
+
+      // Reuse an existing connection if a hot reload left one open.
+      const existing = (await sqlite.isConnection(DB_NAME, false)).result
+      dbConnection = existing
+        ? await sqlite.retrieveConnection(DB_NAME, false)
+        : await sqlite.createConnection(DB_NAME, false, 'no-encryption', SCHEMA_VERSION, false)
+
+      await dbConnection.open()
+      // SQLite disables foreign key enforcement by default, and the setting
+      // is per-connection. Our schema uses ON DELETE CASCADE for game_players
+      // and hand_history child rows; without this PRAGMA those cascades
+      // silently never fire and deleted games leave orphaned children.
+      await dbConnection.execute('PRAGMA foreign_keys = ON;')
+      await applySchema(dbConnection)
+    } catch (err) {
+      // Clear the cached promise so the next caller can retry. Without this
+      // a transient init failure (e.g. IndexedDB temporarily unavailable)
+      // would permanently brick the app until a full page reload.
+      initPromise = null
+      throw err
     }
-
-    // Reuse an existing connection if a hot reload left one open.
-    const existing = (await sqlite.isConnection(DB_NAME, false)).result
-    dbConnection = existing
-      ? await sqlite.retrieveConnection(DB_NAME, false)
-      : await sqlite.createConnection(DB_NAME, false, 'no-encryption', SCHEMA_VERSION, false)
-
-    await dbConnection.open()
-    await applySchema(dbConnection)
   })()
   return initPromise
 }

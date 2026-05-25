@@ -1,6 +1,11 @@
 import type { Game, HandCategoryDetail, HandHistoryEntry, Player } from '../game'
 import { queryRows, runStatement, runTransaction } from './connection'
 
+/** Generate a stable id for a {@link HandHistoryEntry} row. */
+function makeHandId(): string {
+  return `hand-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+}
+
 /** Row shape for a SELECT on `games`. */
 type GameRow = {
   id: string
@@ -29,7 +34,7 @@ type GamePlayerRow = {
 
 /** Row shape for the joined SELECT on `hand_history`. */
 type HandRow = {
-  id: number
+  id: string
   game_id: string
   hand_number: number
   timestamp: number
@@ -37,14 +42,14 @@ type HandRow = {
 
 /** Row shape for SELECTs on `hand_scores`. */
 type HandScoreRow = {
-  hand_id: number
+  hand_id: string
   player_id: string
   score: number
 }
 
 /** Row shape for SELECTs on `hand_categories`. */
 type HandCategoryRow = {
-  hand_id: number
+  hand_id: string
   player_id: string
   cards: number
   coins: number
@@ -244,14 +249,16 @@ export async function bankHand(
   timestamp: number,
   perPlayer: Array<{ playerId: string; score: number; categories: HandCategoryDetail; newTotal: number }>,
 ): Promise<void> {
-  // Phase 1: insert the hand_history row to get its lastId.
-  const { lastId: handId } = await runStatement(
-    `INSERT INTO hand_history (game_id, hand_number, timestamp) VALUES (?, ?, ?)`,
-    [gameId, handNumber, timestamp],
-  )
-
-  // Phase 2: write the per-player rows + update totals + clear hand state, atomically.
+  // Generate the hand id in code so we can reference it in the child rows
+  // without a round-trip to the DB. That lets every write below sit in a
+  // single atomic transaction — if any one fails, none persist, no dangling
+  // hand_history row is left behind.
+  const handId = makeHandId()
   const statements = [
+    {
+      statement: 'INSERT INTO hand_history (id, game_id, hand_number, timestamp) VALUES (?, ?, ?, ?)',
+      values: [handId, gameId, handNumber, timestamp],
+    },
     ...perPlayer.map(p => ({
       statement: 'INSERT INTO hand_scores (hand_id, player_id, score) VALUES (?, ?, ?)',
       values: [handId, p.playerId, p.score],

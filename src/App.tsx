@@ -327,14 +327,21 @@ export default function App() {
   }
 
   /**
-   * Helper: finalize the currently-active game in the DB and clear the
-   * winner overlay state. Used by both new-game actions after a win.
+   * Finalize the currently-active game in the DB and clear the winner
+   * overlay state. Used by both new-game actions after a win.
+   *
+   * `await`s the mutation so callers (newGameSamePlayers / newGameNewPlayers)
+   * can sequence the subsequent createGame / setActiveGameId(null) safely
+   * — otherwise the new game can be created before the old one's
+   * `completed_at` is set, leaving a brief window where the cache shows
+   * two active games or where the active-games query refetches with the
+   * not-yet-completed game still present.
    */
-  const finalizeActiveGameIfWon = () => {
+  const finalizeActiveGameIfWon = async () => {
     if (!activeGame || winnerName === null) return
     const winnerPlayer = activeGame.players.find(p => p.name === winnerName)
     if (winnerPlayer) {
-      completeGameMut.mutate({
+      await completeGameMut.mutateAsync({
         gameId: activeGame.id,
         winner: { profileId: winnerPlayer.profileId, name: winnerPlayer.name },
         completedAt: Date.now(),
@@ -365,9 +372,9 @@ export default function App() {
    * Completes the won game in the DB (preserves it in history) and creates
    * a new active game with fresh scores.
    */
-  const newGameSamePlayers = () => {
+  const newGameSamePlayers = async () => {
     if (!activeGame) return
-    finalizeActiveGameIfWon()
+    await finalizeActiveGameIfWon()
     const newPlayers: Player[] = activeGame.players.map(p => ({ ...p, totalScore: 0 }))
     const newGame: Game = {
       id: makeId(),
@@ -387,8 +394,8 @@ export default function App() {
    * Finalize the just-finished game (preserve in history) and return to the
    * setup screen for a fresh seat selection.
    */
-  const newGameNewPlayers = () => {
-    finalizeActiveGameIfWon()
+  const newGameNewPlayers = async () => {
+    await finalizeActiveGameIfWon()
     setActiveGameId(null)
     resetSetup()
   }
