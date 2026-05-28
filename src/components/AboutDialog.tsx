@@ -28,7 +28,6 @@ const PRIVACY_POLICY_URL_EN =
   'https://github.com/taterhead247/scopa-score-keeper/blob/main/PRIVACY.md'
 const PRIVACY_POLICY_URL_IT =
   'https://github.com/taterhead247/scopa-score-keeper/blob/main/PRIVACY.it.md'
-const SOURCE_URL = 'https://github.com/taterhead247/scopa-score-keeper'
 const ISSUES_URL = 'https://github.com/taterhead247/scopa-score-keeper/issues'
 
 /**
@@ -90,16 +89,6 @@ export function AboutDialog({ open, onOpenChange, tr }: Props) {
                 dangerouslySetInnerHTML={md(tr('about.about.body', { version: pkg.version }))}
               />
               <ul className="mt-3 space-y-1.5 text-sm">
-                <li>
-                  <a
-                    href={SOURCE_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary underline underline-offset-2"
-                  >
-                    {tr('about.link.source')}
-                  </a>
-                </li>
                 <li className="text-muted-foreground">{tr('about.link.license')}</li>
                 <li>
                   <a
