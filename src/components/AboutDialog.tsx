@@ -1,4 +1,5 @@
 import { marked } from 'marked'
+import DOMPurify from 'dompurify'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -22,6 +23,12 @@ type Props = {
   open: boolean
   onOpenChange: (open: boolean) => void
   tr: Tr
+  /**
+   * Active language code (e.g. `'en'`, `'it'`). Used to pick the right
+   * privacy-policy URL — explicit signal rather than comparing translated
+   * strings, which would silently break if the app title ever changed.
+   */
+  language: string
 }
 
 const PRIVACY_POLICY_URL_EN =
@@ -32,12 +39,17 @@ const ISSUES_URL = 'https://github.com/taterhead247/scopa-score-keeper/issues'
 
 /**
  * Render a small subset of Markdown (bold + lists + paragraphs) the issue
- * content uses. We rely on `marked` (already a dep) configured in sync mode;
- * the rendered HTML is injected with dangerouslySetInnerHTML because the
- * content is fully app-controlled translation strings — no user input.
+ * content uses, then sanitize before injection.
+ *
+ * The input is fully app-controlled (translation strings shipped with the
+ * bundle), so there's no live XSS surface today. DOMPurify is still in the
+ * pipeline as defense-in-depth — if a future change ever pipes user input
+ * through this helper, the sanitizer catches it instead of becoming a
+ * silent vulnerability.
  */
 function md(source: string): { __html: string } {
-  return { __html: marked.parse(source, { async: false }) as string }
+  const rendered = marked.parse(source, { async: false }) as string
+  return { __html: DOMPurify.sanitize(rendered) }
 }
 
 /**
@@ -49,9 +61,8 @@ function md(source: string): { __html: string } {
  * Version is read from package.json at build time; localization keys
  * substitute `{version}` so we never hardcode a string.
  */
-export function AboutDialog({ open, onOpenChange, tr }: Props) {
-  const privacyUrl =
-    tr('app.title') === 'Scopa — Segnapunti' ? PRIVACY_POLICY_URL_IT : PRIVACY_POLICY_URL_EN
+export function AboutDialog({ open, onOpenChange, tr, language }: Props) {
+  const privacyUrl = language === 'it' ? PRIVACY_POLICY_URL_IT : PRIVACY_POLICY_URL_EN
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -160,6 +160,20 @@ export default function App() {
 
   /** Translate `key` using the current language, with optional `{name}`-style interpolation. */
   const tr = (key: string, params?: Record<string, string>) => t(key, language, params)
+
+  /**
+   * Keep `<html lang>` in sync with the user's language choice. Screen
+   * readers pick the pronunciation engine from this attribute, so without
+   * the sync TalkBack/VoiceOver would announce Italian content in an
+   * English voice (and vice versa). Matches the WCAG 2.2 guidance in
+   * CLAUDE.md ("If you generate localized HTML at runtime, update
+   * `document.documentElement.lang` too.").
+   */
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.documentElement.lang = language
+    }
+  }, [language])
 
   // Data export/import flow (#45). The returned `element` hosts the hidden
   // file input + confirmation dialog and stays mounted across menu opens.
@@ -722,7 +736,7 @@ export default function App() {
           tr={tr}
         />
 
-        <AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} tr={tr} />
+        <AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} tr={tr} language={language} />
 
         {dataPortability.element}
       </main>
@@ -1065,7 +1079,7 @@ export default function App() {
         tr={tr}
       />
 
-      <AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} tr={tr} />
+      <AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} tr={tr} language={language} />
 
       {dataPortability.element}
 
