@@ -18,6 +18,7 @@ import {
   pickDefaultColor,
   pickDefaultEmoji,
 } from '@/lib/profiles'
+import { useInsertProfileMutation } from '@/lib/db/hooks'
 
 /** Props for {@link ProfilePicker}. */
 type Props = {
@@ -27,8 +28,6 @@ type Props = {
   onOpenChange: (open: boolean) => void
   /** All profiles available to pick from. */
   profiles: PlayerProfile[]
-  /** Setter for the profiles list, used when inline-creating a new profile. */
-  setProfiles: React.Dispatch<React.SetStateAction<PlayerProfile[]>>
   /** Ids already assigned to other seats; shown disabled in the list. */
   takenIds: Set<string>
   /** Called with the chosen profile's id once a selection is made. */
@@ -56,12 +55,12 @@ export function ProfilePicker({
   open,
   onOpenChange,
   profiles,
-  setProfiles,
   takenIds,
   onPick,
   tr,
 }: Props) {
   const [creating, setCreating] = useState<CreateState | null>(null)
+  const insertProfileMut = useInsertProfileMutation()
 
   /** Switch the dialog into "create new player" mode with sensible defaults. */
   const startCreate = () => {
@@ -90,7 +89,7 @@ export function ProfilePicker({
       emoji: creating.emoji,
       createdAt: Date.now(),
     }
-    setProfiles(prev => [...prev, newProfile])
+    insertProfileMut.mutate(newProfile)
     setCreating(null)
     onPick(newProfile.id)
   }
