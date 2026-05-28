@@ -94,7 +94,7 @@ async function startGameWithProfiles(profiles: PlayerProfile[]) {
  * the DB so this should be fast.
  */
 async function waitForReady() {
-  await screen.findByText('Scopa Score Tracker')
+  await screen.findByText('Scopa Score')
 }
 
 beforeEach(async () => {

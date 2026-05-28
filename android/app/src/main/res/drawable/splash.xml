@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Capacitor splash drawable (#53). Layer-list: solid Mediterranean blue
+  background + the adaptive-icon foreground (cream card + coin) centered
+  on top. The launcher's Theme.SplashScreen reference in styles.xml
+  picks this drawable, so we get a brand-aligned splash with zero
+  per-density PNG maintenance — the bitmap layer pulls from the existing
+  mipmap-* foreground rasters.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/ic_launcher_background" />
+    <item android:gravity="center">
+        <bitmap
+            android:src="@mipmap/ic_launcher_foreground"
+            android:gravity="center"
+            android:tileMode="disabled" />
+    </item>
+</layer-list>

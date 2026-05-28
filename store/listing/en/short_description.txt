@@ -1,0 +1,1 @@
+Effortless score tracking for the Italian card game Scopa.

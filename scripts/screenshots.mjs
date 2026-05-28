@@ -67,7 +67,7 @@ const LANGUAGES = requestedLang ? [requestedLang] : SUPPORTED_LANGS
  */
 const T = {
   en: {
-    appTitle: 'Scopa Score Tracker',
+    appTitle: 'Scopa Score',
     bankHand: 'Bank Hand',
     calculate: 'Calculate',
     closePrimiera: 'Close',

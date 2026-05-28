@@ -3,7 +3,7 @@ import { t, LANGUAGES } from '../i18n'
 
 describe('i18n', () => {
   it('returns English text for known keys', () => {
-    expect(t('app.title', 'en')).toBe('Scopa Score Tracker')
+    expect(t('app.title', 'en')).toBe('Scopa Score')
   })
 
   it('returns Italian text for known keys', () => {
@@ -11,7 +11,7 @@ describe('i18n', () => {
   })
 
   it('falls back to English for unknown language', () => {
-    expect(t('app.title', 'fr')).toBe('Scopa Score Tracker')
+    expect(t('app.title', 'fr')).toBe('Scopa Score')
   })
 
   it('returns the key itself when key is unknown', () => {

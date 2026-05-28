@@ -1,0 +1,48 @@
+Track your Scopa games without the scrap paper.
+
+Played by Italian families for generations, Scopa is a card game that
+rewards memory, strategy — and accurate score-keeping. Scopa Score
+brings the scoring out of the margins of napkins and onto your phone,
+where it belongs.
+
+What you get:
+
+🎯 Effortless scoring
+Pick winners for Cards, Coins, Settebello, and Primiera with a single
+tap. Track scopas as they happen. The app handles the math — you focus
+on the game.
+
+🧮 Built-in Primiera calculator
+Stop arguing about whose hand is better. Tap in the cards each player
+holds and the calculator tells you the winner instantly.
+
+👥 Reusable player profiles
+Create players once with a name, color, and emoji. Pick them at the
+start of every game — no more retyping. Stats follow them across every
+game they play.
+
+📊 Real statistics
+Win rates, average scores, head-to-head records, win streaks, and
+per-category breakdowns. See who is actually the Settebello king.
+
+📜 Searchable history
+Every completed game saved automatically. Filter by player, sort by
+date or score, see exactly when Marco beat Giulia for the fifth time
+in a row.
+
+⚡ Quick start
+Recent player groupings appear on the home screen — one tap to start
+a game with the same lineup as last time. Pin your favorites for
+instant access.
+
+🇮🇹 Italian and English
+Full localization for both languages, because the game deserves both.
+
+What we don't do:
+
+✅ No ads — ever.
+✅ No accounts, no sign-ups, no email required.
+✅ No tracking, no analytics, no data leaves your phone.
+✅ Works completely offline.
+
+Free. Open-source. Yours to use, share, and build on.

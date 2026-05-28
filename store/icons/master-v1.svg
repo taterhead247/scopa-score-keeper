@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 1024 1024"
+  width="1024"
+  height="1024"
+  role="img"
+  aria-label="Scopa Score app icon: cream playing card with a gold settebello coin on a Mediterranean blue background"
+>
+  <!--
+    Palette tokens. Direct fill attributes (not CSS vars) so the file
+    renders correctly in standalone viewers (Finder Quick Look, image
+    apps, GitHub previews) — those don't resolve :root vars inside an
+    SVG. Tweak in one place when iterating.
+  -->
+  <style>
+    .bg     { fill: #2563eb; }
+    .card   { fill: #faf5eb; }
+    .shadow { fill: #000000; opacity: 0.10; }
+    .rim    { fill: #d4a017; }
+    .face   { fill: #f0c450; }
+    .star   { fill: #5e3a13; }
+    .coral  { fill: #e85d4a; }
+  </style>
+
+  <!-- Background plate. Remove this for the Android adaptive foreground layer. -->
+  <rect class="bg" width="1024" height="1024" />
+
+  <!--
+    Card. Sized to occupy roughly the central 56% of the canvas so the
+    visible content sits inside the 66dp Android adaptive safe zone
+    regardless of the launcher's mask shape (circle / squircle / round).
+  -->
+  <!-- subtle drop shadow under the card -->
+  <rect class="shadow" x="232" y="172" width="560" height="780" rx="56" />
+  <rect class="card"   x="222" y="162" width="560" height="780" rx="56" />
+
+  <!-- Coin medallion, centered on the card. -->
+  <g transform="translate(502 552)">
+    <!-- two-tone gold disc -->
+    <circle class="rim"  r="220" />
+    <circle class="face" r="195" />
+
+    <!--
+      8-point compass rosette. Polygon alternates 8 outer points
+      (radius 180) with 8 inner points (radius 78). Outer points now
+      reach nearly to the gold rim so the star silhouette survives at
+      48dp — the home-screen size that matters.
+    -->
+    <polygon
+      class="star"
+      points="
+        0,-180
+        29.8,-72.1
+        127.3,-127.3
+        72.1,-29.8
+        180,0
+        72.1,29.8
+        127.3,127.3
+        29.8,72.1
+        0,180
+        -29.8,72.1
+        -127.3,127.3
+        -72.1,29.8
+        -180,0
+        -72.1,-29.8
+        -127.3,-127.3
+        -29.8,-72.1
+      "
+    />
+
+    <!-- Central boss: small gold circle with a coral dot at its core. -->
+    <circle class="face"  r="28" />
+    <circle class="coral" r="18" />
+  </g>
+</svg>

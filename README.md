@@ -1,4 +1,4 @@
-# Scopa Score Tracker
+# Scopa Score
 
 A mobile-first web application for tracking scores in the traditional Italian card game Scopa.
 
