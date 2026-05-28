@@ -148,10 +148,23 @@ export default function App() {
   // Persisted via the settings hook below.
   const [hapticsOn, setHapticsOn] = useState<boolean>(areHapticsEnabled())
 
-  // #51 — first-run hint flags. Each persists once dismissed.
+  // #51 — first-run hint flags. Each persists once dismissed OR once the
+  // user demonstrates they've understood what the hint was pointing at.
   const [seenProfilesTip, markProfilesTipSeen] = useOnboardingFlag('profiles-tip')
   const [seenFirstBankTip, markFirstBankTipSeen] = useOnboardingFlag('first-bank-tip')
   const [seenCardValuesTip, markCardValuesTipSeen] = useOnboardingFlag('card-values-tip')
+
+  /**
+   * Treat "user has at least one profile" as implicit completion of the
+   * profiles tip — they've demonstrated they understand the profile model,
+   * so even if they later return to zero profiles (deleted all of them) we
+   * don't want the hint reappearing as if they were a first-time user.
+   */
+  useEffect(() => {
+    if (profiles.length > 0 && !seenProfilesTip) {
+      markProfilesTipSeen()
+    }
+  }, [profiles.length, seenProfilesTip, markProfilesTipSeen])
 
   // Winner state
   const [winnerName, setWinnerName] = useState<string | null>(null)
