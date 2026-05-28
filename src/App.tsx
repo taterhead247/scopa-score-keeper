@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { useTheme } from 'next-themes'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -20,17 +20,37 @@ import { Plus, Minus, Calculator, List, Check, Key, UsersThree, DotsThreeVertica
 import { toast } from 'sonner'
 import { t, LANGUAGES } from '@/i18n'
 import { WinnerOverlay } from '@/components/WinnerOverlay'
-import { PremieraCalc } from '@/components/PremieraCalc'
 import { HandChart } from '@/components/HandChart'
-import { CardValuesLegend } from '@/components/CardValuesLegend'
-import { PlayersScreen } from '@/components/PlayersScreen'
 import { ProfilePicker, ProfileSeatButton } from '@/components/ProfilePicker'
-import { StatisticsScreen } from '@/components/StatisticsScreen'
-import { HistoryScreen } from '@/components/HistoryScreen'
 import { QuickStartSection } from '@/components/QuickStartSection'
 import { useDataPortability } from '@/components/DataPortabilityActions'
-import { AboutDialog } from '@/components/AboutDialog'
 import { OnboardingTip } from '@/components/OnboardingTip'
+
+/*
+  Code-split dialogs that only mount on user action. The initial JS bundle
+  was dominated by Statistics (recharts), History (filtering+date-fns),
+  About (marked+dompurify), and the players-screen / calculators that
+  only show after a tap. Lazy + conditional mount cuts initial parse by
+  pushing those chunks behind the click that opens them.
+*/
+const PremieraCalc = lazy(() =>
+  import('@/components/PremieraCalc').then(m => ({ default: m.PremieraCalc })),
+)
+const CardValuesLegend = lazy(() =>
+  import('@/components/CardValuesLegend').then(m => ({ default: m.CardValuesLegend })),
+)
+const PlayersScreen = lazy(() =>
+  import('@/components/PlayersScreen').then(m => ({ default: m.PlayersScreen })),
+)
+const StatisticsScreen = lazy(() =>
+  import('@/components/StatisticsScreen').then(m => ({ default: m.StatisticsScreen })),
+)
+const HistoryScreen = lazy(() =>
+  import('@/components/HistoryScreen').then(m => ({ default: m.HistoryScreen })),
+)
+const AboutDialog = lazy(() =>
+  import('@/components/AboutDialog').then(m => ({ default: m.AboutDialog })),
+)
 import { useOnboardingFlag } from '@/hooks/use-onboarding'
 import { PROFILE_COLORS } from '@/lib/profiles'
 import { hapticLight, hapticMedium, hapticSuccess, hapticWarning, areHapticsEnabled, setHapticsEnabled } from '@/lib/haptics'
@@ -793,21 +813,33 @@ export default function App() {
           tr={tr}
         />
 
-        <PlayersScreen
-          open={playersScreenOpen}
-          onOpenChange={setPlayersScreenOpen}
-          profiles={profiles}
-          tr={tr}
-        />
-
-        <StatisticsScreen
-          open={statisticsOpen}
-          onOpenChange={setStatisticsOpen}
-          completedGames={completedGames}
-          tr={tr}
-        />
-
-        <AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} tr={tr} language={language} />
+        {/*
+          Lazy-loaded dialogs (setup screen). Each chunk loads on first
+          open of its respective control — conditional mount keeps the
+          chunk OUT of first-paint, and Suspense fallback is null because
+          the user is mid-tap anyway.
+        */}
+        <Suspense fallback={null}>
+          {playersScreenOpen && (
+            <PlayersScreen
+              open={playersScreenOpen}
+              onOpenChange={setPlayersScreenOpen}
+              profiles={profiles}
+              tr={tr}
+            />
+          )}
+          {statisticsOpen && (
+            <StatisticsScreen
+              open={statisticsOpen}
+              onOpenChange={setStatisticsOpen}
+              completedGames={completedGames}
+              tr={tr}
+            />
+          )}
+          {aboutOpen && (
+            <AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} tr={tr} language={language} />
+          )}
+        </Suspense>
 
         {dataPortability.element}
       </main>
@@ -1124,9 +1156,18 @@ export default function App() {
         )}
       </div>
 
-      <PremieraCalc open={premieraOpen} onOpenChange={setPremieraOpen} tr={tr} />
-
-      <CardValuesLegend open={cardValuesOpen} onOpenChange={setCardValuesOpen} tr={tr} />
+      {/*
+        Lazy-loaded dialogs (gameplay screen). Same pattern as the setup
+        tree above — each chunk loads only when the user opens it.
+      */}
+      <Suspense fallback={null}>
+        {premieraOpen && (
+          <PremieraCalc open={premieraOpen} onOpenChange={setPremieraOpen} tr={tr} />
+        )}
+        {cardValuesOpen && (
+          <CardValuesLegend open={cardValuesOpen} onOpenChange={setCardValuesOpen} tr={tr} />
+        )}
+      </Suspense>
 
       <Dialog open={renameOpen} onOpenChange={setRenameOpen}>
         <DialogContent>
@@ -1156,30 +1197,37 @@ export default function App() {
         </DialogContent>
       </Dialog>
 
-      <HistoryScreen
-        open={historyOpen}
-        onOpenChange={setHistoryOpen}
-        completedGames={completedGames}
-        profiles={profiles}
-        language={language}
-        tr={tr}
-      />
-
-      <StatisticsScreen
-        open={statisticsOpen}
-        onOpenChange={setStatisticsOpen}
-        completedGames={completedGames}
-        tr={tr}
-      />
-
-      <PlayersScreen
-        open={playersScreenOpen}
-        onOpenChange={setPlayersScreenOpen}
-        profiles={profiles}
-        tr={tr}
-      />
-
-      <AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} tr={tr} language={language} />
+      <Suspense fallback={null}>
+        {historyOpen && (
+          <HistoryScreen
+            open={historyOpen}
+            onOpenChange={setHistoryOpen}
+            completedGames={completedGames}
+            profiles={profiles}
+            language={language}
+            tr={tr}
+          />
+        )}
+        {statisticsOpen && (
+          <StatisticsScreen
+            open={statisticsOpen}
+            onOpenChange={setStatisticsOpen}
+            completedGames={completedGames}
+            tr={tr}
+          />
+        )}
+        {playersScreenOpen && (
+          <PlayersScreen
+            open={playersScreenOpen}
+            onOpenChange={setPlayersScreenOpen}
+            profiles={profiles}
+            tr={tr}
+          />
+        )}
+        {aboutOpen && (
+          <AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} tr={tr} language={language} />
+        )}
+      </Suspense>
 
       {dataPortability.element}
 
