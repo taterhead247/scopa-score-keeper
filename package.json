@@ -106,8 +106,10 @@
         "typescript": "~6.0.3",
         "typescript-eslint": "^8.59.4",
         "vite": "^8.0.14",
+        "vite-plugin-pwa": "^1.3.0",
         "vite-plugin-static-copy": "^4.1.0",
-        "vitest": "^4.1.7"
+        "vitest": "^4.1.7",
+        "workbox-window": "^7.4.1"
     },
     "workspaces": {
         "packages": [

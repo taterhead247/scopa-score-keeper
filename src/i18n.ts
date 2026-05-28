@@ -57,6 +57,14 @@ const en: Translations = {
   'onboarding.cardValuesLabel': 'Card values',
   'onboarding.dismiss': 'Dismiss tip',
 
+  'install.title': 'Install Scopa Score',
+  'install.body': 'Add it to your home screen for a faster, full-screen launch.',
+  'install.cta': 'Install',
+  'install.dismiss': 'Dismiss install prompt',
+  'install.ios.title': 'Install on iPhone or iPad',
+  'install.ios.body': 'Tap the Share button',
+  'install.ios.tail': "then choose “Add to Home Screen”.",
+
   'stats.title': 'Statistics',
   'stats.empty': 'Finish a game to see statistics here.',
   'stats.tab.leaderboard': 'Leaderboard',
@@ -257,6 +265,14 @@ const it: Translations = {
   'onboarding.firstBank': 'Le partite completate sono salvate nel menu — apri Statistiche o Storico da lì.',
   'onboarding.cardValuesLabel': 'Valori delle carte',
   'onboarding.dismiss': 'Chiudi suggerimento',
+
+  'install.title': 'Installa Scopa Score',
+  'install.body': 'Aggiungila alla schermata Home per un avvio più rapido e a schermo intero.',
+  'install.cta': 'Installa',
+  'install.dismiss': 'Chiudi richiesta di installazione',
+  'install.ios.title': 'Installa su iPhone o iPad',
+  'install.ios.body': "Tocca il pulsante Condividi",
+  'install.ios.tail': "poi scegli “Aggiungi alla schermata Home”.",
 
   'stats.title': 'Statistiche',
   'stats.empty': 'Termina una partita per vedere le statistiche.',

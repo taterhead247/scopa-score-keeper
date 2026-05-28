@@ -2,6 +2,7 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 import { viteStaticCopy } from "vite-plugin-static-copy";
+import { VitePWA } from "vite-plugin-pwa";
 
 import { resolve } from 'path'
 
@@ -36,6 +37,69 @@ export default defineConfig({
           rename: { stripBase: true },
         },
       ],
+    }),
+    /**
+     * PWA support (#48). Generates a Workbox service worker that pre-caches
+     * the app shell and lets the app boot offline once installed. We pass
+     * `manifest: false` because the project ships a hand-crafted
+     * `public/manifest.webmanifest` (added in #53 alongside the icon
+     * pipeline); regenerating it here would clobber the careful brand
+     * defaults (background color, maskable icon, lang hint).
+     *
+     * `registerType: 'autoUpdate'` skips the user "Update available" prompt
+     * — for a small offline-first app, silently refreshing on next launch
+     * is the right call. Users with the app open get the fresh build at
+     * the next reload.
+     */
+    VitePWA({
+      registerType: 'autoUpdate',
+      injectRegister: false, // we register manually in src/main.tsx
+      manifest: false,
+      includeAssets: [
+        'favicon-16.png',
+        'favicon-32.png',
+        'favicon-48.png',
+        'apple-touch-icon.png',
+        'pwa-192.png',
+        'pwa-512.png',
+        'manifest.webmanifest',
+      ],
+      workbox: {
+        // Precache everything Vite emits + the static icons above.
+        globPatterns: ['**/*.{js,css,html,png,svg,wasm,webmanifest}'],
+        // SQLite WASM is loaded lazily from /assets/sql-wasm.wasm; cap
+        // chunk size so it's allowed through the precache filter.
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+        // Google Fonts are CDN-served — runtime cache them so an offline
+        // launch doesn't show fallback text.
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/fonts\.googleapis\.com\//,
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'google-fonts-stylesheets',
+            },
+          },
+          {
+            urlPattern: /^https:\/\/fonts\.gstatic\.com\//,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'google-fonts-webfonts',
+              expiration: {
+                maxAgeSeconds: 60 * 60 * 24 * 365,
+                maxEntries: 32,
+              },
+            },
+          },
+        ],
+        navigateFallback: 'index.html',
+      },
+      devOptions: {
+        // Off in dev: HMR-incompatible and the service worker caches
+        // dev bundles in confusing ways. Production build + preview is
+        // the right surface for PWA testing.
+        enabled: false,
+      },
     }),
   ],
   optimizeDeps: {
