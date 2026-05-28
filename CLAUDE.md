@@ -21,8 +21,10 @@ Cross-platform (web + Android via Capacitor) score tracker for the Italian card 
 - `src/lib/db/portability.ts` — export/import (issue #45)
 - `src/lib/profiles.ts` / `src/lib/groupings.ts` / `src/lib/game.ts` — core domain types
 - `src/i18n.ts` — EN + IT translation table (both languages must stay in sync)
-- `src/hooks/` — small React hooks (`use-mobile`, `use-reduced-motion`)
+- `src/hooks/` — small React hooks (`use-mobile`, `use-reduced-motion`, `use-onboarding`)
 - `src/test/` — Vitest tests; `setup.ts` mocks Capacitor SQLite
+- `store/icons/master-v1.svg` — single source of truth for every raster icon; `scripts/export-icons.mjs` regenerates web favicons, PWA icons, Android adaptive foreground, and legacy launcher mipmaps from it
+- `store/listing/{en,it}/` — Play Store short/long descriptions, kept in sync with the in-app feature set
 
 ## Commands
 
@@ -34,9 +36,59 @@ Cross-platform (web + Android via Capacitor) score tracker for the Italian card 
 ## Conventions worth keeping
 
 - **i18n is required on user-visible strings.** Every label/toast/aria-label has EN and IT entries in `src/i18n.ts`. The `tr()` helper inside App is `t(key, language, params)`.
-- **All persistence goes through `src/lib/db/`.** No new `localStorage` keys. The DB hooks invalidate via TanStack Query — mutations call `useInvalidateAll()` or a specific key.
+- **All *durable* persistence goes through `src/lib/db/`.** No new `localStorage` keys for user data. The DB hooks invalidate via TanStack Query — mutations call `useInvalidateAll()` or a specific key. **Exception**: pure device-local UI preferences (`scopa-theme` via next-themes, `scopa-onboarding-*` flags) live in localStorage because they have no portability requirement and avoid the DB round-trip on the first-paint path.
 - **Game player metadata is snapshotted on game creation.** If you need to read a name/color/emoji from a historical game, use the row on `game_players`, not the live `profiles` row.
 - **The unified `games` table** holds both active and completed games (`completed_at IS NULL` distinguishes them). Don't introduce a second table.
+
+## Patterns to reuse
+
+These are non-obvious patterns we've adopted across recent merges — reach for them before inventing alternatives.
+
+### `.text-profile` for theme-adaptive profile colors
+
+`PROFILE_COLORS` are 700/800-shade darks tuned for the light cream background. They fail contrast as text on the dark navy bg. Pass the color through a CSS custom property + the `.text-profile` class instead of `style={{ color: ... }}`:
+
+```tsx
+<span
+  className="text-profile font-medium"
+  style={{ '--profile-color': player.color } as React.CSSProperties}
+>
+  {player.name}
+</span>
+```
+
+`index.css` defines `.text-profile { color: var(--profile-color); }` for light mode and `.dark .text-profile { color: color-mix(in srgb, var(--profile-color), white 55%); }` for dark — same hex stored on the row, adaptive render.
+
+### `useOnboardingFlag` for one-shot hints
+
+`src/hooks/use-onboarding.ts` returns `[seen, markSeen]` for a localStorage flag namespaced under `scopa-onboarding-`. SSR-safe, cross-tab synced via `storage` events. Use for any first-run coachmark / dismissible tip:
+
+```tsx
+const [seen, markSeen] = useOnboardingFlag('my-tip')
+{!seen && <OnboardingTip onDismiss={markSeen} ... />}
+```
+
+Treat *natural completion* of the user task as implicit dismissal (e.g. an `useEffect` that calls `markSeen()` when the user creates their first profile) so the hint can't re-appear by going back to an empty state.
+
+### Lazy-loaded dialogs
+
+The bundle audit (perf-code-split-and-claude-md) lazy-loaded six dialogs that only mount on user action: `PremieraCalc`, `CardValuesLegend`, `PlayersScreen`, `StatisticsScreen`, `HistoryScreen`, `AboutDialog`. Pattern:
+
+```tsx
+const StatisticsScreen = lazy(() =>
+  import('@/components/StatisticsScreen').then(m => ({ default: m.StatisticsScreen })),
+)
+
+<Suspense fallback={null}>
+  {statisticsOpen && <StatisticsScreen ... />}
+</Suspense>
+```
+
+**Lazy alone is not enough** — Radix Dialog mounts at first render even when `open=false`, which triggers the chunk load. The conditional mount (`{open && <Component />}`) is what pushes the chunk behind the click. If you add a new modal that's only ever opened on user action, copy this pattern.
+
+### Icon export pipeline
+
+Don't hand-edit the binary mipmap PNGs. Edit `store/icons/master-v1.svg`, then run `node scripts/export-icons.mjs` — it regenerates every raster (web favicons, PWA 192/512, Android legacy + adaptive foreground across all densities) and copies them into the right `public/` and `android/.../mipmap-*` paths.
 
 ## WCAG 2.2 AA — the rules this project ships under
 
@@ -78,6 +130,7 @@ Issue #46 brought the app to Lighthouse a11y 100 / 100. **Future UI changes must
 - Add a `npm run build` step to confirm types.
 - Add unit tests for behavior, not styling. Test that aria-pressed toggles (see `src/test/app.test.tsx` "Accessibility (#46)" describe block) — these guard against silent regressions.
 - For UI changes, manually run Lighthouse against the production build (`npm run build && npm run preview` then `npx lighthouse http://localhost:4173 --only-categories=accessibility`). Target ≥95.
+- For Android-relevant changes (icon, splash, package config), remember the post-merge step: `npx cap sync android` syncs `web/` assets + Capacitor plugin gradle config into the `android/` project. Not handled by CI.
 
 ## Commit / branch conventions
 
