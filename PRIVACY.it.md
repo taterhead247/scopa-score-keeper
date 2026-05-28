@@ -2,10 +2,10 @@
 
 **Ultimo aggiornamento:** 2026-05-28
 
-Scopa Segnapunti è progettato per tenere il punteggio del gioco di
-carte italiano Scopa. Crediamo che ciò che fai nell'app sia affar tuo,
-e per questo l'app è progettata per raccogliere il minor numero
-possibile di informazioni.
+Scopa Segnapunti è realizzata da **Vinciguerra Games** per tenere il
+punteggio del gioco di carte italiano Scopa. Crediamo che ciò che fai
+nell'app sia affar tuo, e per questo l'app è progettata per raccogliere
+il minor numero possibile di informazioni.
 
 Una versione inglese di questa informativa è disponibile su
 [`PRIVACY.md`](./PRIVACY.md).
@@ -62,7 +62,8 @@ Saprai sempre cosa viene raccolto e avrai un modo per disattivarlo.
 
 ## Contatti
 
-Per domande su questa informativa, apri una issue su
+Per domande su questa informativa, invia un'email a
+[scopa@evan.vin](mailto:scopa@evan.vin) oppure apri una issue su
 [github.com/taterhead247/scopa-score-keeper/issues](https://github.com/taterhead247/scopa-score-keeper/issues).
 
 ---

@@ -2,9 +2,10 @@
 
 **Last updated:** 2026-05-28
 
-Scopa Score Tracker is built to track scores for the Italian card game
-Scopa. We believe that what you do in the app is your business, and so
-the app is designed to collect as little information as possible.
+Scopa Score Tracker is made by **Vinciguerra Games** to track scores for
+the Italian card game Scopa. We believe that what you do in the app is
+your business, and so the app is designed to collect as little
+information as possible.
 
 An Italian-language version of this policy is available at
 [`PRIVACY.it.md`](./PRIVACY.it.md).
@@ -61,7 +62,8 @@ it off.
 
 ## Contact
 
-For questions about this policy, open an issue at
+For questions about this policy, email
+[scopa@evan.vin](mailto:scopa@evan.vin) or open an issue at
 [github.com/taterhead247/scopa-score-keeper/issues](https://github.com/taterhead247/scopa-score-keeper/issues).
 
 ---
