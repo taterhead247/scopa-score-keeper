@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
@@ -27,7 +28,9 @@ import { StatisticsScreen } from '@/components/StatisticsScreen'
 import { HistoryScreen } from '@/components/HistoryScreen'
 import { QuickStartSection } from '@/components/QuickStartSection'
 import { useDataPortability } from '@/components/DataPortabilityActions'
+import { AboutDialog } from '@/components/AboutDialog'
 import { PROFILE_COLORS } from '@/lib/profiles'
+import { hapticLight, hapticMedium, hapticSuccess, hapticWarning, areHapticsEnabled, setHapticsEnabled } from '@/lib/haptics'
 import type { Player, HandCategoryDetail, Game } from '@/lib/game'
 import { computeWinOutcome } from '@/lib/game'
 import { SETTINGS_KEYS } from '@/lib/db'
@@ -43,6 +46,7 @@ import {
   useSetHandCategoryWinnerMutation,
   useSetHandScopaScoreMutation,
   useBankHandMutation,
+  useUnbankHandMutation,
   useCompleteGameMutation,
   useResetGameMutation,
   useDeleteGameMutation,
@@ -95,6 +99,7 @@ export default function App() {
   const setCategoryWinnerMut = useSetHandCategoryWinnerMutation()
   const setScopaScoreMut = useSetHandScopaScoreMutation()
   const bankHandMut = useBankHandMutation()
+  const unbankHandMut = useUnbankHandMutation()
   const completeGameMut = useCompleteGameMutation()
   const resetGameMut = useResetGameMutation()
   const deleteGameMut = useDeleteGameMutation()
@@ -111,6 +116,15 @@ export default function App() {
     setSettingMut.mutate({ key: SETTINGS_KEYS.language, value: code })
   }
 
+  /** Toggle the haptics preference, applying it to the runtime module
+   * immediately (so the next tap reflects the change) and persisting it. */
+  const toggleHaptics = () => {
+    const next = !hapticsOn
+    setHapticsOn(next)
+    setHapticsEnabled(next)
+    setSettingMut.mutate({ key: SETTINGS_KEYS.hapticsEnabled, value: String(next) })
+  }
+
   // Setup state (still in-memory; lost on reload, which is fine for a draft selection)
   const [playerCount, setPlayerCount] = useState(2)
   const [selectedProfileIds, setSelectedProfileIds] = useState<(string | null)[]>([null, null])
@@ -125,6 +139,11 @@ export default function App() {
   const [openGamesOpen, setOpenGamesOpen] = useState(false)
   const [playersScreenOpen, setPlayersScreenOpen] = useState(false)
   const [statisticsOpen, setStatisticsOpen] = useState(false)
+  const [aboutOpen, setAboutOpen] = useState(false)
+
+  // #49 — haptics toggle. Initial value is whatever boot saw in app_settings.
+  // Persisted via the settings hook below.
+  const [hapticsOn, setHapticsOn] = useState<boolean>(areHapticsEnabled())
 
   // Winner state
   const [winnerName, setWinnerName] = useState<string | null>(null)
@@ -305,19 +324,44 @@ export default function App() {
     setLiveAnnouncement(tr('a11y.handBanked', { scores: scoreSummary }))
 
     const outcome = computeWinOutcome(updatedPlayers)
+    // Medium impact for the commit action; success/warning on overlay open.
+    hapticMedium()
     if (outcome.kind === 'win') {
       setWinnerName(outcome.winner.name)
       setIsTie(false)
       setTiedPlayerNames([])
+      hapticSuccess()
     } else if (outcome.kind === 'tie') {
       // Defensive: clear any stale winner state so the overlay shows tie, not winner.
       setWinnerName(null)
       setIsTie(true)
       setTiedPlayerNames(outcome.tied.map(p => p.name))
       toast.info(tr('winner.tie'))
-    } else {
-      toast.success(tr('toast.handBanked'))
+      hapticWarning()
     }
+    // #47 — Undo affordance. Always show the toast so the user has a clear
+    // "out" if they banked by mistake; on win/tie this lives alongside the
+    // overlay (Sonner toasts render above dialogs).
+    const gameId = activeGame.id
+    toast.success(tr('toast.handBanked'), {
+      duration: 7000,
+      action: {
+        label: tr('toast.undo'),
+        onClick: () => {
+          unbankHandMut.mutate(gameId, {
+            onSuccess: () => {
+              // Roll back the overlay / live announcement that this hand triggered.
+              setWinnerName(null)
+              setIsTie(false)
+              setTiedPlayerNames([])
+              setLiveAnnouncement(tr('a11y.handUnbanked'))
+              hapticLight()
+              toast.success(tr('toast.handUnbanked'))
+            },
+          })
+        },
+      },
+    })
   }
 
   /** Adjust the in-progress scopa count for one player, clamped at zero. */
@@ -329,6 +373,7 @@ export default function App() {
       playerId,
       count: Math.max(0, current + delta),
     })
+    hapticLight()
   }
 
   /**
@@ -345,6 +390,7 @@ export default function App() {
       'handCardsWinner' | 'handCoinsWinner' | 'handSettebelloWinner' | 'handPremieraWinner'
     const newValue = activeGame[currentKey] === playerId ? null : playerId
     setCategoryWinnerMut.mutate({ gameId: activeGame.id, category, playerId: newValue })
+    hapticLight()
   }
 
   /** Zero every player's totalScore and clear hand state, keeping the same players. */
@@ -529,6 +575,18 @@ export default function App() {
                 <DropdownMenuItem onClick={dataPortability.onImport}>
                   {tr('menu.importData')}
                 </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuCheckboxItem
+                  checked={hapticsOn}
+                  onCheckedChange={toggleHaptics}
+                  onSelect={e => e.preventDefault()}
+                >
+                  {tr('menu.haptics')}
+                </DropdownMenuCheckboxItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setAboutOpen(true)}>
+                  {tr('menu.about')}
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -599,6 +657,14 @@ export default function App() {
                 </button>
               ))}
             </div>
+            <div className="text-center">
+              <button
+                onClick={() => setAboutOpen(true)}
+                className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors"
+              >
+                {tr('setup.aboutLink')}
+              </button>
+            </div>
             <Button onClick={startGame} disabled={!allSeatsFilled} className="w-full" size="lg">
               {tr('setup.startGame')}
             </Button>
@@ -655,6 +721,8 @@ export default function App() {
           completedGames={completedGames}
           tr={tr}
         />
+
+        <AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} tr={tr} />
 
         {dataPortability.element}
       </main>
@@ -730,7 +798,17 @@ export default function App() {
                   {tr('menu.statistics')}
                 </DropdownMenuItem>
               )}
+              <DropdownMenuItem onClick={() => setAboutOpen(true)}>
+                {tr('menu.about')}
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
+              <DropdownMenuCheckboxItem
+                checked={hapticsOn}
+                onCheckedChange={toggleHaptics}
+                onSelect={e => e.preventDefault()}
+              >
+                {tr('menu.haptics')}
+              </DropdownMenuCheckboxItem>
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger>{tr('menu.language')}</DropdownMenuSubTrigger>
                 <DropdownMenuSubContent>
@@ -986,6 +1064,8 @@ export default function App() {
         profiles={profiles}
         tr={tr}
       />
+
+      <AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} tr={tr} />
 
       {dataPortability.element}
 

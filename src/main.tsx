@@ -7,6 +7,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import App from './App.tsx'
 import { ErrorFallback } from './ErrorFallback.tsx'
 import { initDatabase, runDataMigrations } from './lib/db'
+import { SETTINGS_KEYS } from './lib/db/schema'
+import { getSetting } from './lib/db/settings'
+import { setHapticsEnabled } from './lib/haptics'
 
 import "./main.css"
 import "./styles/theme.css"
@@ -108,6 +111,13 @@ function Bootstrap() {
     maybeWipeLegacyLocalStorage()
     initDatabase()
       .then(() => runDataMigrations())
+      .then(async () => {
+        // Apply the persisted haptics preference before any UI renders so
+        // the first click of the session sees the correct setting.
+        const raw = await getSetting(SETTINGS_KEYS.hapticsEnabled)
+        // Default to true — PRD calls out tactile as a baseline quality.
+        setHapticsEnabled(raw === null ? true : raw === 'true')
+      })
       .then(() => maybeSeedForScreenshots())
       .then(() => setStatus('ready'))
       .catch(err => {

@@ -281,6 +281,62 @@ describe('Accessibility (#46)', () => {
   })
 })
 
+describe('Undo Bank Hand (#47)', () => {
+  it('bankHand toast carries an Undo action button', async () => {
+    const { toast } = await import('sonner')
+    const profiles = await seedProfiles(['Mario', 'Luigi'])
+    renderApp()
+    await waitForReady()
+    await startGameWithProfiles(profiles)
+    await waitFor(() => expect(screen.getByText('Bank Hand')).toBeInTheDocument())
+
+    vi.mocked(toast.success).mockClear()
+    fireEvent.click(screen.getByText('Bank Hand'))
+
+    await waitFor(() => {
+      // The first arg is the localized "Hand banked!" string; second is the
+      // options object carrying the action callback.
+      expect(toast.success).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          duration: 7000,
+          action: expect.objectContaining({
+            label: expect.any(String),
+            onClick: expect.any(Function),
+          }),
+        }),
+      )
+    })
+  })
+
+  it('clicking the Undo action triggers the unbank mutation', async () => {
+    const { toast } = await import('sonner')
+    const profiles = await seedProfiles(['Mario', 'Luigi'])
+    renderApp()
+    await waitForReady()
+    await startGameWithProfiles(profiles)
+    await waitFor(() => expect(screen.getByText('Bank Hand')).toBeInTheDocument())
+
+    vi.mocked(toast.success).mockClear()
+    fireEvent.click(screen.getByText('Bank Hand'))
+
+    // Pull the captured action.onClick callback out of the mock and invoke it.
+    await waitFor(() => expect(toast.success).toHaveBeenCalled())
+    const successCall = vi.mocked(toast.success).mock.calls.find(
+      c => typeof c[1] === 'object' && c[1] !== null && 'action' in c[1],
+    )
+    expect(successCall).toBeDefined()
+    const action = (successCall![1] as { action: { onClick: () => void } }).action
+    action.onClick()
+    // Undo fires its own success toast; if no exceptions, the wiring is intact.
+    await waitFor(() => {
+      const calls = vi.mocked(toast.success).mock.calls
+      // First call is the bank toast; second is the unbank toast.
+      expect(calls.length).toBeGreaterThanOrEqual(2)
+    })
+  })
+})
+
 describe('Card Values Legend', () => {
   it('opens and closes the card values legend', async () => {
     const profiles = await seedProfiles(['Mario', 'Luigi'])

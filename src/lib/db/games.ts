@@ -296,6 +296,86 @@ export async function bankHand(
 }
 
 /**
+ * Reverse the most recently banked hand on a game (#47 — Undo affordance).
+ *
+ * Reads the most recent `hand_history` row, then in a single transaction:
+ *   1. Decrements each player's `total_score` by their contribution to that
+ *      hand (read from `hand_scores`).
+ *   2. Restores each player's `hand_scopa_score` from the `hand_categories`
+ *      scopa column — the +/- counter is back where it was pre-bank.
+ *   3. Restores the four `hand_*_winner_player_id` columns on `games` from
+ *      the boolean flags in `hand_categories`, so the pills re-appear with
+ *      the same selections.
+ *   4. Clears any winner finalization that was applied (defensive — in the
+ *      current React flow `completeGame` only fires after the user dismisses
+ *      the winner overlay, but if that changes this still does the right
+ *      thing).
+ *   5. Deletes the `hand_history` row (cascades to `hand_scores` +
+ *      `hand_categories`).
+ *
+ * Returns `false` if there is no hand to undo (defensive — UI should never
+ * call this when no hand exists).
+ */
+export async function unbankHand(gameId: string): Promise<boolean> {
+  const handRows = await queryRows<{ id: string; hand_number: number }>(
+    'SELECT id, hand_number FROM hand_history WHERE game_id = ? ORDER BY hand_number DESC LIMIT 1',
+    [gameId],
+  )
+  if (handRows.length === 0) return false
+  const handId = handRows[0].id
+
+  const scoreRows = await queryRows<HandScoreRow>(
+    'SELECT hand_id, player_id, score FROM hand_scores WHERE hand_id = ?',
+    [handId],
+  )
+  const categoryRows = await queryRows<HandCategoryRow>(
+    'SELECT hand_id, player_id, cards, coins, settebello, premiera, scopa FROM hand_categories WHERE hand_id = ?',
+    [handId],
+  )
+
+  // Identify which player (if any) won each category in this banked hand.
+  // Only one player at most can win a category, so a `find` is safe.
+  const cardsWinner = categoryRows.find(c => c.cards === 1)?.player_id ?? null
+  const coinsWinner = categoryRows.find(c => c.coins === 1)?.player_id ?? null
+  const settebelloWinner = categoryRows.find(c => c.settebello === 1)?.player_id ?? null
+  const premieraWinner = categoryRows.find(c => c.premiera === 1)?.player_id ?? null
+
+  const statements: Array<{ statement: string; values?: unknown[] }> = [
+    // Undo per-player score and restore the scopa counter.
+    ...scoreRows.map(s => {
+      const cat = categoryRows.find(c => c.player_id === s.player_id)
+      const scopa = cat?.scopa ?? 0
+      return {
+        statement: `UPDATE game_players
+            SET total_score = total_score - ?, hand_scopa_score = ?
+          WHERE game_id = ? AND player_id = ?`,
+        values: [s.score, scopa, gameId, s.player_id],
+      }
+    }),
+    // Restore the pending category-winner selections.
+    {
+      statement: `UPDATE games SET
+          hand_cards_winner_player_id = ?,
+          hand_coins_winner_player_id = ?,
+          hand_settebello_winner_player_id = ?,
+          hand_premiera_winner_player_id = ?,
+          completed_at = NULL,
+          winner_profile_id = NULL,
+          winner_name = NULL
+        WHERE id = ?`,
+      values: [cardsWinner, coinsWinner, settebelloWinner, premieraWinner, gameId],
+    },
+    // Drop the hand row last so its data is still readable above.
+    {
+      statement: 'DELETE FROM hand_history WHERE id = ?',
+      values: [handId],
+    },
+  ]
+  await runTransaction(statements)
+  return true
+}
+
+/**
  * Mark a game as completed. The hand banked that ended it has already been
  * written via {@link bankHand}; this just sets the winner + completion time.
  */
