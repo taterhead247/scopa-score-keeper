@@ -2,12 +2,12 @@
 
 **Last updated:** 2026-05-28
 
-Scopa Score Tracker is made by **Vinciguerra Games** to track scores for
+Scopa Score Tracker is made by **deVinci** to track scores for
 the Italian card game Scopa. We believe that what you do in the app is
 your business, and so the app is designed to collect as little
 information as possible.
 
-An Italian-language version of this policy is available at
+Una versione italiana di questa informativa è disponibile su
 [`PRIVACY.it.md`](./PRIVACY.it.md).
 
 ## What we collect

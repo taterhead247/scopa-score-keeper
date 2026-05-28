@@ -133,4 +133,5 @@ export const SETTINGS_KEYS = {
   schemaVersion: 'schema_version',
   language: 'language',
   activeGameId: 'active_game_id',
+  hapticsEnabled: 'haptics_enabled',
 } as const

@@ -206,6 +206,19 @@ export function useCompleteGameMutation() {
   })
 }
 
+/**
+ * Reverse the most recently banked hand. See {@link gamesDb.unbankHand}.
+ * Invalidates all caches because the change affects scores, hand history,
+ * category winners, and (in edge cases) completion state.
+ */
+export function useUnbankHandMutation() {
+  const invalidate = useInvalidateAll()
+  return useMutation({
+    mutationFn: gamesDb.unbankHand,
+    onSuccess: invalidate,
+  })
+}
+
 /** Reset every player's score on a game (preserves players, drops hands). */
 export function useResetGameMutation() {
   const invalidate = useInvalidateAll()

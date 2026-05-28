@@ -2,12 +2,12 @@
 
 **Ultimo aggiornamento:** 2026-05-28
 
-Scopa Segnapunti è realizzata da **Vinciguerra Games** per tenere il
+Scopa Segnapunti è realizzata da **deVinci** per tenere il
 punteggio del gioco di carte italiano Scopa. Crediamo che ciò che fai
 nell'app sia affar tuo, e per questo l'app è progettata per raccogliere
 il minor numero possibile di informazioni.
 
-Una versione inglese di questa informativa è disponibile su
+An English-language version of this policy is available at
 [`PRIVACY.md`](./PRIVACY.md).
 
 ## Cosa raccogliamo
