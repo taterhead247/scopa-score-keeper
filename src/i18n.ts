@@ -52,6 +52,11 @@ const en: Translations = {
   'theme.light': 'Light',
   'theme.dark': 'Dark',
 
+  'onboarding.profiles': 'Create players once, then reuse them in every game. Their stats are saved automatically.',
+  'onboarding.firstBank': 'Completed games are saved in the menu — open Statistics or History from there.',
+  'onboarding.cardValuesLabel': 'Card values',
+  'onboarding.dismiss': 'Dismiss tip',
+
   'stats.title': 'Statistics',
   'stats.empty': 'Finish a game to see statistics here.',
   'stats.tab.leaderboard': 'Leaderboard',
@@ -247,6 +252,11 @@ const it: Translations = {
   'theme.system': 'Sistema',
   'theme.light': 'Chiaro',
   'theme.dark': 'Scuro',
+
+  'onboarding.profiles': 'Crea i giocatori una volta sola, poi riutilizzali in ogni partita. Le loro statistiche vengono salvate automaticamente.',
+  'onboarding.firstBank': 'Le partite completate sono salvate nel menu — apri Statistiche o Storico da lì.',
+  'onboarding.cardValuesLabel': 'Valori delle carte',
+  'onboarding.dismiss': 'Chiudi suggerimento',
 
   'stats.title': 'Statistiche',
   'stats.empty': 'Termina una partita per vedere le statistiche.',
