@@ -227,7 +227,11 @@ export function HistoryScreen({
                   </div>
                   <div className="text-xs flex flex-wrap gap-x-3 gap-y-1">
                     {game.players.map(p => (
-                      <span key={p.playerId ?? p.profileId} style={{ color: p.color }} className="font-medium">
+                      <span
+                        key={p.playerId ?? p.profileId}
+                        style={{ '--profile-color': p.color } as React.CSSProperties}
+                        className="font-medium text-profile"
+                      >
                         {p.emoji} {p.name} ({p.score})
                       </span>
                     ))}

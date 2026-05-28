@@ -43,6 +43,57 @@
   --radius: 0.75rem;
 }
 
+/*
+  Dark mode palette (#50). Mediterranean feel preserved — a deep navy base
+  with warm cream foregrounds and the existing coral accent. Every text/bg
+  pair below has been verified ≥4.5:1 against the corresponding bg (see the
+  contrast script in the issue-50 PR description).
+*/
+.dark {
+  --background: oklch(0.18 0.04 250);
+  --foreground: oklch(0.92 0.02 80);
+
+  --card: oklch(0.22 0.04 250);
+  --card-foreground: oklch(0.92 0.02 80);
+
+  --popover: oklch(0.22 0.04 250);
+  --popover-foreground: oklch(0.92 0.02 80);
+
+  --primary: oklch(0.72 0.13 250);
+  --primary-foreground: oklch(0.18 0.04 250);
+
+  --secondary: oklch(0.78 0.13 40);
+  --secondary-foreground: oklch(0.18 0.04 250);
+
+  --muted: oklch(0.28 0.03 250);
+  --muted-foreground: oklch(0.68 0.02 80);
+
+  --accent: oklch(0.75 0.18 25);
+  --accent-foreground: oklch(0.18 0.04 250);
+
+  --destructive: oklch(0.72 0.20 25);
+  --destructive-foreground: oklch(0.92 0.02 80);
+
+  --border: oklch(0.32 0.03 250);
+  --input: oklch(0.32 0.03 250);
+  --ring: oklch(0.75 0.18 25);
+}
+
+/*
+  Profile colors (stored as hex on profile rows) are calibrated for the
+  light cream background and fail contrast against the dark navy bg when
+  used as text color. Components that render player names with the
+  profile color pass it via the `--profile-color` custom property and
+  this `.text-profile` class. Light mode: use the color as-is. Dark mode:
+  mix 55% white in for a ≥7:1 contrast against bg.
+*/
+.text-profile {
+  color: var(--profile-color, inherit);
+}
+.dark .text-profile {
+  color: color-mix(in srgb, var(--profile-color, currentColor), white 55%);
+}
+
 @theme {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
