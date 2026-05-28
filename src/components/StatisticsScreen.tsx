@@ -106,8 +106,11 @@ function LeaderboardTable({
           key={row.profileId}
           className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 items-center p-2 rounded-md border border-border"
         >
-          <span className="flex items-center gap-2 truncate font-medium" style={{ color: row.lastKnownColor }}>
-            <span>{row.lastKnownEmoji}</span>
+          <span
+            className="flex items-center gap-2 truncate font-medium text-profile"
+            style={{ '--profile-color': row.lastKnownColor } as React.CSSProperties}
+          >
+            <span aria-hidden="true">{row.lastKnownEmoji}</span>
             <span className="truncate">{row.lastKnownName}</span>
           </span>
           <span className="text-right text-sm tabular-nums w-12">{row.wins}-{row.losses}</span>
@@ -162,8 +165,11 @@ function CategoriesTable({
             key={row.profileId}
             className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-1 items-center p-2 rounded-md border border-border"
           >
-            <span className="flex items-center gap-2 truncate font-medium" style={{ color: row.lastKnownColor }}>
-              <span>{row.lastKnownEmoji}</span>
+            <span
+              className="flex items-center gap-2 truncate font-medium text-profile"
+              style={{ '--profile-color': row.lastKnownColor } as React.CSSProperties}
+            >
+              <span aria-hidden="true">{row.lastKnownEmoji}</span>
               <span className="truncate">{row.lastKnownName}</span>
             </span>
             <CategoryCell record={c.cards} />
@@ -218,16 +224,22 @@ function HeadToHeadList({
             key={`${profileIdA}::${profileIdB}`}
             className="flex items-center gap-2 p-2 rounded-md border border-border text-sm"
           >
-            <span className="flex items-center gap-1 truncate font-medium flex-1" style={{ color: a.color }}>
-              <span>{a.emoji}</span>
+            <span
+              className="flex items-center gap-1 truncate font-medium flex-1 text-profile"
+              style={{ '--profile-color': a.color } as React.CSSProperties}
+            >
+              <span aria-hidden="true">{a.emoji}</span>
               <span className="truncate">{a.name}</span>
             </span>
             <span className="tabular-nums whitespace-nowrap">
               {record.aWins} — {record.bWins}
             </span>
-            <span className="flex items-center gap-1 truncate font-medium flex-1 justify-end" style={{ color: b.color }}>
+            <span
+              className="flex items-center gap-1 truncate font-medium flex-1 justify-end text-profile"
+              style={{ '--profile-color': b.color } as React.CSSProperties}
+            >
               <span className="truncate">{b.name}</span>
-              <span>{b.emoji}</span>
+              <span aria-hidden="true">{b.emoji}</span>
             </span>
             {record.otherWins > 0 && (
               <span

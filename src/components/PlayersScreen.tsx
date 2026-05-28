@@ -176,7 +176,10 @@ export function PlayersScreen({ open, onOpenChange, profiles, tr }: Props) {
                 >
                   {profile.emoji}
                 </div>
-                <div className="flex-1 min-w-0 font-medium truncate" style={{ color: profile.color }}>
+                <div
+                  className="flex-1 min-w-0 font-medium truncate text-profile"
+                  style={{ '--profile-color': profile.color } as React.CSSProperties}
+                >
                   {profile.name}
                 </div>
                 <div className="flex items-center gap-0.5 shrink-0">

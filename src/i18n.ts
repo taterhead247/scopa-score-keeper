@@ -47,6 +47,10 @@ const en: Translations = {
   'menu.haptics': 'Haptic feedback',
   'menu.about': 'About',
   'setup.aboutLink': 'About this app',
+  'menu.theme': 'Theme',
+  'theme.system': 'System',
+  'theme.light': 'Light',
+  'theme.dark': 'Dark',
 
   'stats.title': 'Statistics',
   'stats.empty': 'Finish a game to see statistics here.',
@@ -239,6 +243,10 @@ const it: Translations = {
   'menu.haptics': 'Vibrazione',
   'menu.about': 'Informazioni',
   'setup.aboutLink': 'Informazioni sull\'app',
+  'menu.theme': 'Tema',
+  'theme.system': 'Sistema',
+  'theme.light': 'Chiaro',
+  'theme.dark': 'Scuro',
 
   'stats.title': 'Statistiche',
   'stats.empty': 'Termina una partita per vedere le statistiche.',

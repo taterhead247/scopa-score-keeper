@@ -177,13 +177,13 @@ function GroupingRow({
             return (
               <span
                 key={id}
-                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium"
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium text-profile"
                 style={{
                   backgroundColor: `${p.color}20`,
-                  color: p.color,
-                }}
+                  '--profile-color': p.color,
+                } as React.CSSProperties}
               >
-                <span>{p.emoji}</span>
+                <span aria-hidden="true">{p.emoji}</span>
                 <span>{p.name}</span>
               </span>
             )

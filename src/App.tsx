@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTheme } from 'next-themes'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -174,6 +175,13 @@ export default function App() {
       document.documentElement.lang = language
     }
   }, [language])
+
+  // #50 — theme. next-themes persists to localStorage under "scopa-theme"
+  // and applies the `.dark` class to <html> when resolved theme is dark.
+  // `theme` is the user choice ("system" | "light" | "dark"); `setTheme`
+  // updates it. We don't gate on `resolvedTheme` — Tailwind / CSS does
+  // the visual work for us.
+  const { theme, setTheme } = useTheme()
 
   // Data export/import flow (#45). The returned `element` hosts the hidden
   // file input + confirmation dialog and stays mounted across menu opens.
@@ -535,6 +543,11 @@ export default function App() {
     onClick: () => void
   }) => {
     const color = player.color || PROFILE_COLORS[0]
+    // The unselected pill uses the profile color as text on a transparent
+    // bg. In dark mode that fails contrast, so we route the color through
+    // the `text-profile` class (defined in index.css) which lightens via
+    // color-mix when `.dark` is on <html>. The selected pill keeps its
+    // white-on-color treatment — those colors all pass ≥4.5:1 vs white.
     return (
       <button
         type="button"
@@ -544,14 +557,15 @@ export default function App() {
           player: player.name,
           category: tr(`category.${category === 'premiera' ? 'primiera' : category}`),
         })}
-        className="px-3 py-1.5 min-h-11 rounded-md border-2 font-medium text-sm transition-colors flex items-center gap-1.5"
+        className={`px-3 py-1.5 min-h-11 rounded-md border-2 font-medium text-sm transition-colors flex items-center gap-1.5 ${isSelected ? '' : 'text-profile'}`}
         style={{
           backgroundColor: isSelected ? color : 'transparent',
           borderColor: color,
-          color: isSelected ? '#ffffff' : color,
+          ['--profile-color' as string]: color,
+          ...(isSelected ? { color: '#ffffff' } : {}),
         }}
       >
-        <span>{player.emoji}</span>
+        <span aria-hidden="true">{player.emoji}</span>
         <span>{player.name}</span>
       </button>
     )
@@ -660,7 +674,9 @@ export default function App() {
               {LANGUAGES.map(lang => (
                 <button
                   key={lang.code}
+                  type="button"
                   onClick={() => setLanguage(lang.code)}
+                  aria-pressed={language === lang.code}
                   className={`px-3 py-1 rounded-md border transition-colors ${
                     language === lang.code
                       ? 'bg-primary text-primary-foreground border-primary'
@@ -668,6 +684,24 @@ export default function App() {
                   }`}
                 >
                   {lang.name}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-muted-foreground">{tr('menu.theme')}:</span>
+              {(['system', 'light', 'dark'] as const).map(t => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setTheme(t)}
+                  aria-pressed={theme === t}
+                  className={`px-3 py-1 rounded-md border transition-colors ${
+                    theme === t
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'border-border hover:bg-muted'
+                  }`}
+                >
+                  {tr(`theme.${t}`)}
                 </button>
               ))}
             </div>
@@ -837,6 +871,17 @@ export default function App() {
                   ))}
                 </DropdownMenuSubContent>
               </DropdownMenuSub>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>{tr('menu.theme')}</DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  {(['system', 'light', 'dark'] as const).map(t => (
+                    <DropdownMenuItem key={t} onClick={() => setTheme(t)}>
+                      {tr(`theme.${t}`)}
+                      {theme === t && <Check size={16} className="ml-auto" />}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={openRenameDialog}>
                 {tr('menu.rename')}
@@ -867,10 +912,10 @@ export default function App() {
           {players.map(player => (
             <Card key={player.id} className="p-2 text-center">
               <div
-                className="text-xs sm:text-sm font-medium truncate flex items-center justify-center gap-1"
-                style={{ color: player.color }}
+                className="text-xs sm:text-sm font-medium truncate flex items-center justify-center gap-1 text-profile"
+                style={{ '--profile-color': player.color } as React.CSSProperties}
               >
-                <span>{player.emoji}</span>
+                <span aria-hidden="true">{player.emoji}</span>
                 <span className="truncate">{player.name}</span>
               </div>
               <div className="text-4xl sm:text-5xl font-bold text-primary leading-tight">
@@ -890,8 +935,11 @@ export default function App() {
               <div className="grid gap-2">
                 {players.map(player => (
                   <div key={player.id} className="flex items-center justify-between">
-                    <span className="text-sm font-medium flex items-center gap-1" style={{ color: player.color }}>
-                      <span>{player.emoji}</span>
+                    <span
+                      className="text-sm font-medium flex items-center gap-1 text-profile"
+                      style={{ '--profile-color': player.color } as React.CSSProperties}
+                    >
+                      <span aria-hidden="true">{player.emoji}</span>
                       <span>{player.name}</span>
                     </span>
                     <div className="flex items-center gap-2">
@@ -1005,7 +1053,10 @@ export default function App() {
                       ].filter(Boolean).join(', ') : ''
                       return (
                         <div key={p.id} className="text-muted-foreground">
-                          <span style={{ color: p.color }} className="font-medium">
+                          <span
+                            style={{ '--profile-color': p.color } as React.CSSProperties}
+                            className="font-medium text-profile"
+                          >
                             {p.emoji} {p.name}
                           </span>
                           {': '}
