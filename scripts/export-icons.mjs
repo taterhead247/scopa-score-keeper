@@ -55,28 +55,7 @@ async function rasterize(page, svg, size, outPath) {
   })
 }
 
-const browser = await chromium.launch()
-const page = await browser.newPage()
-
-// ── Web favicons ────────────────────────────────────────
-for (const size of [16, 32, 48]) {
-  const path = join(OUT, `favicon-${size}.png`)
-  await rasterize(page, svgFull, size, path)
-  console.log(`  ${path}`)
-}
-
-// ── Apple touch icon ────────────────────────────────────
-await rasterize(page, svgFull, 180, join(OUT, 'apple-touch-icon-180.png'))
-console.log(`  ${join(OUT, 'apple-touch-icon-180.png')}`)
-
-// ── PWA manifest icons ──────────────────────────────────
-for (const size of [192, 512]) {
-  const path = join(OUT, `pwa-${size}.png`)
-  await rasterize(page, svgFull, size, path)
-  console.log(`  ${path}`)
-}
-
-// ── Android legacy launcher (full icon, blue bg baked in) ───
+// Legacy launcher densities (full icon, blue bg baked in).
 const LEGACY_SIZES = [
   { dpi: 'mdpi', px: 48 },
   { dpi: 'hdpi', px: 72 },
@@ -84,15 +63,8 @@ const LEGACY_SIZES = [
   { dpi: 'xxhdpi', px: 144 },
   { dpi: 'xxxhdpi', px: 192 },
 ]
-for (const { dpi, px } of LEGACY_SIZES) {
-  const path = join(OUT, `legacy-${dpi}-${px}.png`)
-  await rasterize(page, svgFull, px, path)
-  console.log(`  ${path}`)
-}
-
-// ── Android adaptive foreground (transparent bg) ────────
-// Sizes per Android documentation: 108dp icon, foreground layer rendered
-// at densities mdpi=108, hdpi=162, xhdpi=216, xxhdpi=324, xxxhdpi=432.
+// Adaptive foreground densities (transparent bg). Per Android docs:
+// 108dp icon, foreground layer rendered at mdpi=108 → xxxhdpi=432.
 const ADAPTIVE_SIZES = [
   { dpi: 'mdpi', px: 108 },
   { dpi: 'hdpi', px: 162 },
@@ -100,13 +72,49 @@ const ADAPTIVE_SIZES = [
   { dpi: 'xxhdpi', px: 324 },
   { dpi: 'xxxhdpi', px: 432 },
 ]
-for (const { dpi, px } of ADAPTIVE_SIZES) {
-  const path = join(OUT, `adaptive-fg-${dpi}-${px}.png`)
-  await rasterize(page, svgForeground, px, path)
-  console.log(`  ${path}`)
-}
 
-await browser.close()
+// Wrap the browser lifecycle in try/finally so a rasterize() failure
+// (missing SVG, screenshot error, write failure) never leaks the
+// Chromium process — leftover workers from a broken run otherwise
+// have to be killed by hand.
+const browser = await chromium.launch()
+try {
+  const page = await browser.newPage()
+
+  // ── Web favicons ──────────────────────────────────────
+  for (const size of [16, 32, 48]) {
+    const path = join(OUT, `favicon-${size}.png`)
+    await rasterize(page, svgFull, size, path)
+    console.log(`  ${path}`)
+  }
+
+  // ── Apple touch icon ──────────────────────────────────
+  await rasterize(page, svgFull, 180, join(OUT, 'apple-touch-icon-180.png'))
+  console.log(`  ${join(OUT, 'apple-touch-icon-180.png')}`)
+
+  // ── PWA manifest icons ────────────────────────────────
+  for (const size of [192, 512]) {
+    const path = join(OUT, `pwa-${size}.png`)
+    await rasterize(page, svgFull, size, path)
+    console.log(`  ${path}`)
+  }
+
+  // ── Android legacy launcher ───────────────────────────
+  for (const { dpi, px } of LEGACY_SIZES) {
+    const path = join(OUT, `legacy-${dpi}-${px}.png`)
+    await rasterize(page, svgFull, px, path)
+    console.log(`  ${path}`)
+  }
+
+  // ── Android adaptive foreground ───────────────────────
+  for (const { dpi, px } of ADAPTIVE_SIZES) {
+    const path = join(OUT, `adaptive-fg-${dpi}-${px}.png`)
+    await rasterize(page, svgForeground, px, path)
+    console.log(`  ${path}`)
+  }
+} finally {
+  await browser.close()
+}
 
 // ── Copy into android/ + public/ destinations ───────────
 console.log('\nCopying to destination paths…')
