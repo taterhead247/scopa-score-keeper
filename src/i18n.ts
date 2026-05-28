@@ -41,6 +41,9 @@ const en: Translations = {
   'menu.endGame': 'End Game',
   'menu.players': 'Manage Players',
   'menu.statistics': 'Statistics',
+  'menu.exportData': 'Export Data',
+  'menu.importData': 'Import Data',
+  'menu.dataSettings': 'Data',
 
   'stats.title': 'Statistics',
   'stats.empty': 'Finish a game to see statistics here.',
@@ -133,6 +136,15 @@ const en: Translations = {
   'toast.namesUpdated': 'Player names updated!',
   'toast.primieraTie': "It's a tie — no points awarded.",
   'toast.primieraWin': '{name} wins Primiera!',
+  'toast.exportSuccess': 'Backup exported.',
+  'toast.exportError': 'Export failed: {error}',
+  'toast.importSuccess': 'Backup restored.',
+  'toast.importError': 'Could not import backup: {error}',
+  'toast.importInvalid': 'That file does not look like a Scopa backup.',
+
+  'data.importConfirmTitle': 'Restore from backup?',
+  'data.importConfirmBody': 'This will replace every profile, game, and setting on this device with the contents of the backup file. There is no undo.',
+  'data.importConfirmAction': 'Restore',
 
   'rename.title': 'Rename Players',
   'rename.save': 'Save Names',
@@ -195,6 +207,9 @@ const it: Translations = {
   'menu.endGame': 'Termina Partita',
   'menu.players': 'Gestisci Giocatori',
   'menu.statistics': 'Statistiche',
+  'menu.exportData': 'Esporta Dati',
+  'menu.importData': 'Importa Dati',
+  'menu.dataSettings': 'Dati',
 
   'stats.title': 'Statistiche',
   'stats.empty': 'Termina una partita per vedere le statistiche.',
@@ -287,6 +302,15 @@ const it: Translations = {
   'toast.namesUpdated': 'Nomi aggiornati!',
   'toast.primieraTie': 'Pareggio — nessun punto assegnato.',
   'toast.primieraWin': '{name} vince la Primiera!',
+  'toast.exportSuccess': 'Backup esportato.',
+  'toast.exportError': 'Esportazione fallita: {error}',
+  'toast.importSuccess': 'Backup ripristinato.',
+  'toast.importError': 'Impossibile importare il backup: {error}',
+  'toast.importInvalid': 'Questo file non sembra un backup di Scopa.',
+
+  'data.importConfirmTitle': 'Ripristinare dal backup?',
+  'data.importConfirmBody': 'Questa operazione sostituirà tutti i giocatori, le partite e le impostazioni su questo dispositivo con il contenuto del file di backup. Non è possibile annullare.',
+  'data.importConfirmAction': 'Ripristina',
 
   'rename.title': 'Rinomina Giocatori',
   'rename.save': 'Salva Nomi',

@@ -14,7 +14,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Plus, Minus, Calculator, List, Check, Key, UsersThree } from '@phosphor-icons/react'
+import { Plus, Minus, Calculator, List, Check, Key, UsersThree, DotsThreeVertical } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 import { t, LANGUAGES } from '@/i18n'
 import { WinnerOverlay } from '@/components/WinnerOverlay'
@@ -26,6 +26,7 @@ import { ProfilePicker, ProfileSeatButton } from '@/components/ProfilePicker'
 import { StatisticsScreen } from '@/components/StatisticsScreen'
 import { HistoryScreen } from '@/components/HistoryScreen'
 import { QuickStartSection } from '@/components/QuickStartSection'
+import { useDataPortability } from '@/components/DataPortabilityActions'
 import { PROFILE_COLORS } from '@/lib/profiles'
 import type { Player, HandCategoryDetail, Game } from '@/lib/game'
 import { computeWinOutcome } from '@/lib/game'
@@ -132,6 +133,10 @@ export default function App() {
 
   /** Translate `key` using the current language, with optional `{name}`-style interpolation. */
   const tr = (key: string, params?: Record<string, string>) => t(key, language, params)
+
+  // Data export/import flow (#45). The returned `element` hosts the hidden
+  // file input + confirmation dialog and stays mounted across menu opens.
+  const dataPortability = useDataPortability(tr)
 
   // Active game derived
   const activeGame = games.find(g => g.id === activeGameId) ?? null
@@ -469,7 +474,29 @@ export default function App() {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="w-full max-w-md p-6">
-          <h1 className="text-3xl font-bold text-center mb-6">{tr('app.title')}</h1>
+          <div className="relative mb-6">
+            <h1 className="text-3xl font-bold text-center">{tr('app.title')}</h1>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-0 top-1/2 -translate-y-1/2"
+                  aria-label={tr('menu.dataSettings')}
+                >
+                  <DotsThreeVertical size={20} />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem onClick={dataPortability.onExport}>
+                  {tr('menu.exportData')}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={dataPortability.onImport}>
+                  {tr('menu.importData')}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
           <div className="space-y-6">
             <div>
               <Label className="text-base font-semibold mb-3 block">{tr('setup.playerCount')}</Label>
@@ -593,6 +620,8 @@ export default function App() {
           completedGames={completedGames}
           tr={tr}
         />
+
+        {dataPortability.element}
       </div>
     )
   }
@@ -676,6 +705,14 @@ export default function App() {
               <DropdownMenuItem onClick={resetScores}>
                 {tr('menu.reset')}
               </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={dataPortability.onExport}>
+                {tr('menu.exportData')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={dataPortability.onImport}>
+                {tr('menu.importData')}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={endGame}
                 className="text-destructive focus:text-destructive"
@@ -889,6 +926,8 @@ export default function App() {
         profiles={profiles}
         tr={tr}
       />
+
+      {dataPortability.element}
 
       <Dialog open={openGamesOpen} onOpenChange={setOpenGamesOpen}>
         <DialogContent className="max-w-md">
