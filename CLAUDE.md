@@ -1,4 +1,4 @@
-# Scopa Score Keeper
+# Scopa Score
 
 Cross-platform (web + Android via Capacitor) score tracker for the Italian card game Scopa.
 

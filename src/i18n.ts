@@ -1,7 +1,7 @@
 type Translations = Record<string, string>
 
 const en: Translations = {
-  'app.title': 'Scopa Score Tracker',
+  'app.title': 'Scopa Score',
   'setup.playerCount': 'Number of Players',
   'setup.playerNames': 'Player Names',
   'setup.players': 'Players',
@@ -169,13 +169,13 @@ const en: Translations = {
   'a11y.handBanked': 'Hand banked. {scores}',
   'a11y.handUnbanked': 'Last hand undone. Scores restored.',
 
-  'about.title': 'About Scopa Score Tracker',
+  'about.title': 'About Scopa Score',
   'about.section.rules': 'How to play Scopa',
   'about.section.howto': 'How to use this app',
   'about.section.about': 'About',
   'about.rules.body': "Scopa is a trick-taking card game from Italy, played by 2–6 players with a 40-card Italian-suited deck (or a French deck with the 8s, 9s, and 10s removed).\n\n**Object:** be the first player to reach 11 points. If two or more players are tied at or above 11, the game continues until someone strictly leads.\n\n**How a hand plays:** Each player is dealt 3 cards; 4 cards are laid face-up on the table. On your turn, play one card and capture any table card with the same value — or two or more cards whose values sum to your card. Captured cards go to your pile. If you capture every card on the table at once, you score a **scopa** (\"sweep\") — 1 bonus point, marked immediately.\n\nWhen all cards are played, the hand ends and you tally points.\n\n**Scoring (1 point each):**\n- **Cards** — most captured cards total\n- **Coins** — most cards from the Coins (Denari) suit\n- **Settebello** — captured the 7 of Coins\n- **Primiera** — highest Primiera value (calculated from one card per suit)\n- **Scopa** — 1 per sweep scored during the hand\n\nThe Primiera calculation uses non-standard values: 7 = 21, 6 = 18, Ace = 16, 5 = 15, 4 = 14, 3 = 13, 2 = 12, face cards = 10. You pick your highest-valued card in each of the four suits and sum them.\n\nTap the calculator icon in the Primiera section to let the app handle the math for you.",
   'about.howto.body': "**Create player profiles once.** Tap \"Manage Players\" on the setup screen, add a name + color + emoji for each person who plays regularly. You won't need to retype them again.\n\n**Start a game.** Pick how many players (2–6), tap each seat to assign a profile, hit Start. Or use the Quick Start section to load a recent or favorite grouping in one tap.\n\n**Score as you play.** After each hand:\n1. Tap the player who won each category (Cards, Coins, Settebello, Primiera)\n2. Tap +/- to track each player's scopa count\n3. Use the Primiera calculator if you're unsure who wins\n4. Hit **Bank Hand** to lock in the scores\n\n**Review the standings.** When someone hits 11+ with a strict lead, the game ends and you'll see the winner. Otherwise, deal another hand.\n\n**Check stats later.** Open Statistics from the menu to see win rates, head-to-head records, and category breakdowns across every game played. History lets you filter and review past games.\n\nEverything is saved locally. Nothing is sent anywhere.",
-  'about.about.body': "**Scopa Score Tracker** version `{version}`\n\nA free, open-source app for tracking scores in the Italian card game Scopa. Built to be fast, tactile, and respectful of your data — no ads, no accounts, no tracking.\n\nMade with care for everyone who's ever lost a scrap of paper mid-game.",
+  'about.about.body': "**Scopa Score** version `{version}`\n\nA free, open-source app for tracking scores in the Italian card game Scopa. Built to be fast, tactile, and respectful of your data — no ads, no accounts, no tracking.\n\nMade with care for everyone who's ever lost a scrap of paper mid-game.",
   'about.link.license': 'License: MIT',
   'about.link.privacy': 'Privacy policy',
   'about.link.issues': 'Issues / feedback',

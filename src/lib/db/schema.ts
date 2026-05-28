@@ -1,5 +1,5 @@
 /**
- * Normalized SQLite schema for the Scopa Score Tracker.
+ * Normalized SQLite schema for Scopa Score.
  *
  * Design notes
  * ------------
