@@ -674,7 +674,9 @@ export default function App() {
               {LANGUAGES.map(lang => (
                 <button
                   key={lang.code}
+                  type="button"
                   onClick={() => setLanguage(lang.code)}
+                  aria-pressed={language === lang.code}
                   className={`px-3 py-1 rounded-md border transition-colors ${
                     language === lang.code
                       ? 'bg-primary text-primary-foreground border-primary'
@@ -690,7 +692,9 @@ export default function App() {
               {(['system', 'light', 'dark'] as const).map(t => (
                 <button
                   key={t}
+                  type="button"
                   onClick={() => setTheme(t)}
+                  aria-pressed={theme === t}
                   className={`px-3 py-1 rounded-md border transition-colors ${
                     theme === t
                       ? 'bg-primary text-primary-foreground border-primary'
