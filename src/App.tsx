@@ -30,6 +30,8 @@ import { HistoryScreen } from '@/components/HistoryScreen'
 import { QuickStartSection } from '@/components/QuickStartSection'
 import { useDataPortability } from '@/components/DataPortabilityActions'
 import { AboutDialog } from '@/components/AboutDialog'
+import { OnboardingTip } from '@/components/OnboardingTip'
+import { useOnboardingFlag } from '@/hooks/use-onboarding'
 import { PROFILE_COLORS } from '@/lib/profiles'
 import { hapticLight, hapticMedium, hapticSuccess, hapticWarning, areHapticsEnabled, setHapticsEnabled } from '@/lib/haptics'
 import type { Player, HandCategoryDetail, Game } from '@/lib/game'
@@ -145,6 +147,11 @@ export default function App() {
   // #49 — haptics toggle. Initial value is whatever boot saw in app_settings.
   // Persisted via the settings hook below.
   const [hapticsOn, setHapticsOn] = useState<boolean>(areHapticsEnabled())
+
+  // #51 — first-run hint flags. Each persists once dismissed.
+  const [seenProfilesTip, markProfilesTipSeen] = useOnboardingFlag('profiles-tip')
+  const [seenFirstBankTip, markFirstBankTipSeen] = useOnboardingFlag('first-bank-tip')
+  const [seenCardValuesTip, markCardValuesTipSeen] = useOnboardingFlag('card-values-tip')
 
   // Winner state
   const [winnerName, setWinnerName] = useState<string | null>(null)
@@ -384,6 +391,14 @@ export default function App() {
         },
       },
     })
+
+    // #51 — first-run hint pointing at the menu. Fires once globally, so
+    // even if the user resets the game we don't re-show it. The Sonner
+    // stack auto-handles the layout alongside the Undo toast above.
+    if (!seenFirstBankTip) {
+      toast.info(tr('onboarding.firstBank'), { duration: 6000 })
+      markFirstBankTipSeen()
+    }
   }
 
   /** Adjust the in-progress scopa count for one player, clamped at zero. */
@@ -648,6 +663,15 @@ export default function App() {
                   {tr('setup.managePlayers')}
                 </Button>
               </div>
+              {profiles.length === 0 && !seenProfilesTip && (
+                <div className="mb-3">
+                  <OnboardingTip
+                    body={tr('onboarding.profiles')}
+                    onDismiss={markProfilesTipSeen}
+                    tr={tr}
+                  />
+                </div>
+              )}
               <div className="space-y-2">
                 {Array.from({ length: playerCount }, (_, idx) => (
                   <ProfileSeatButton
@@ -800,15 +824,27 @@ export default function App() {
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-xl sm:text-2xl font-bold truncate">{tr('app.title')}</h1>
           <div className="flex items-center gap-2">
+            {/*
+              #51 — until the user opens the card-values legend for the
+              first time, render the icon button with a text label so
+              first-time players can find the Primiera scoring legend.
+              Once tapped (legend opens), the label collapses to icon-only.
+            */}
             <Button
               variant="outline"
-              size="icon"
-              onClick={() => setCardValuesOpen(true)}
+              size={seenCardValuesTip ? 'icon' : 'sm'}
+              onClick={() => {
+                setCardValuesOpen(true)
+                if (!seenCardValuesTip) markCardValuesTipSeen()
+              }}
               title={tr('cardValues.title')}
               aria-label={tr('a11y.cardValues')}
-              className="h-11 w-11"
+              className={seenCardValuesTip ? 'h-11 w-11' : 'h-11 px-3'}
             >
               <Key size={20} aria-hidden="true" />
+              {!seenCardValuesTip && (
+                <span className="ml-1.5 text-sm">{tr('onboarding.cardValuesLabel')}</span>
+              )}
             </Button>
             <DropdownMenu>
             <DropdownMenuTrigger asChild>
