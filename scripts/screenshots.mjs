@@ -44,10 +44,21 @@ const OUT_ROOT = join(process.cwd(), 'store', 'screenshots')
  */
 
 /** Languages to capture. CLI override via `--lang en|it` selects one. */
+const SUPPORTED_LANGS = ['en', 'it']
 const requestedLang = process.argv.includes('--lang')
   ? process.argv[process.argv.indexOf('--lang') + 1]
   : null
-const LANGUAGES = requestedLang ? [requestedLang] : ['en', 'it']
+if (requestedLang !== null && !SUPPORTED_LANGS.includes(requestedLang)) {
+  // Catches both `--lang` with no value (requestedLang === undefined) and
+  // `--lang fr` (typo / unsupported language). Failing fast here beats the
+  // cryptic "No string map for language ..." error from captureLanguage().
+  console.error(
+    `Invalid --lang value ${JSON.stringify(requestedLang)}. ` +
+    `Must be one of: ${SUPPORTED_LANGS.join(', ')}.`,
+  )
+  process.exit(1)
+}
+const LANGUAGES = requestedLang ? [requestedLang] : SUPPORTED_LANGS
 
 /**
  * Strings the script clicks on, per language. Centralizing here keeps the
@@ -118,10 +129,8 @@ async function captureLanguage(browser, lang) {
   await page.screenshot({ path: join(outDir, '01-setup.png') })
 
   // The seeded active game is in `games`; the setup screen's "Open Games"
-  // list links into it. Click that to reach the gameplay screen.
-  await page.click(`text=${strings.appTitle}`, { force: true }).catch(() => {})
-  // Click the seeded vs-list entry — its label is the player names joined
-  // by " vs ". Marco appears first; targeting his name finds the link.
+  // list links into it. Its label is the player names joined by " vs ", so
+  // targeting the first button containing "Marco" finds the link.
   await page.locator('button:has-text("Marco")').first().click()
   await page.waitForSelector(`text=${strings.bankHand}`, { timeout: 10_000 })
   await sleep(400)

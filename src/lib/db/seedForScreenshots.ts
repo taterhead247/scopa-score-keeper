@@ -202,11 +202,17 @@ export async function seedForScreenshots(language: string): Promise<void> {
 
   await runTransaction(statements)
 
-  // Language gets seeded; the screenshot script clicks into the active game
-  // from the setup screen's "Open Games" list, so we intentionally do NOT
-  // set `activeGameId` here. That keeps shot 1 on the setup screen (which
-  // shows the Quick Start favorites/recents + the Open Games button into
-  // the mid-game state) and lets shot 2 capture the gameplay screen via
-  // real navigation rather than a forced initial state.
+  // Settings. Two writes here are deliberate and order-sensitive:
+  //
+  //   1. Delete `active_game_id` — the relational wipe above doesn't touch
+  //      app_settings, so a previous screenshot run that clicked into the
+  //      gameplay screen could leave behind a stale active-game pointer.
+  //      Without clearing it, the next run would re-create our seeded game
+  //      with the same id (`g-active`) AND find the matching active_game_id
+  //      in settings, booting straight into the gameplay screen and
+  //      corrupting shot 1 (the setup capture).
+  //   2. Set language to the requested value so the i18n layer's
+  //      `useSettingQuery` returns the right code before any rendering.
+  await settings.deleteSetting(SETTINGS_KEYS.activeGameId)
   await settings.setSetting(SETTINGS_KEYS.language, language)
 }
