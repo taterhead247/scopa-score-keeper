@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 import App from './App.tsx'
 import { ErrorFallback } from './ErrorFallback.tsx'
-import { initDatabase } from './lib/db'
+import { initDatabase, runDataMigrations } from './lib/db'
 
 import "./main.css"
 import "./styles/theme.css"
@@ -107,6 +107,7 @@ function Bootstrap() {
   useEffect(() => {
     maybeWipeLegacyLocalStorage()
     initDatabase()
+      .then(() => runDataMigrations())
       .then(() => maybeSeedForScreenshots())
       .then(() => setStatus('ready'))
       .catch(err => {

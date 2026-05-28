@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { usePrefersReducedMotion } from '@/hooks/use-reduced-motion'
 
 const CONFETTI_COLORS = [
   '#ef4444', '#f59e0b', '#eab308', '#22c55e', '#06b6d4',
@@ -33,11 +34,15 @@ export function WinnerOverlay({
   winsMessage,
 }: WinnerOverlayProps) {
   const isOpen = winnerName !== null || isTie
+  // Skip the 400-confetti animation entirely when the OS reduce-motion
+  // setting is on (WCAG 2.3.3). Gating the JSX rather than the CSS means
+  // we also avoid mounting 400 spans for nothing — a perf + a11y win.
+  const reducedMotion = usePrefersReducedMotion()
 
   return (
     <>
       {/* Confetti & solitaire cards */}
-      {isOpen && (
+      {isOpen && !reducedMotion && (
         <div className="pointer-events-none fixed inset-0 z-50 overflow-hidden" aria-hidden="true">
           {/* 400 confetti pieces */}
           {Array.from({ length: 400 }).map((_, idx) => {

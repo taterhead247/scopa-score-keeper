@@ -231,6 +231,56 @@ describe('Game scoring', () => {
   })
 })
 
+describe('Accessibility (#46)', () => {
+  it('category-winner pills expose aria-pressed and toggle on click', async () => {
+    const profiles = await seedProfiles(['Mario', 'Luigi'])
+    renderApp()
+    await waitForReady()
+    await startGameWithProfiles(profiles)
+
+    await waitFor(() => expect(screen.getByText('Bank Hand')).toBeInTheDocument())
+
+    // Before any click: every category pill exposes aria-pressed="false".
+    const marioPills = screen.getAllByRole('button', { pressed: false })
+      .filter(b => b.textContent?.includes('Mario'))
+    expect(marioPills.length).toBeGreaterThanOrEqual(4) // four categories
+
+    // Click the first one (Cards). PlayerButton is defined inside App so
+    // React remounts it on re-render — we must re-query for the updated state.
+    fireEvent.click(marioPills[0])
+    await waitFor(() => {
+      const pressed = screen.queryAllByRole('button', { pressed: true })
+        .filter(b => b.textContent?.includes('Mario'))
+      expect(pressed.length).toBeGreaterThanOrEqual(1)
+    })
+  })
+
+  it('scopa +/- buttons have descriptive aria-labels', async () => {
+    const profiles = await seedProfiles(['Mario', 'Luigi'])
+    renderApp()
+    await waitForReady()
+    await startGameWithProfiles(profiles)
+
+    await waitFor(() => expect(screen.getByText('Bank Hand')).toBeInTheDocument())
+
+    expect(screen.getByLabelText("Increase Mario's scopa count")).toBeInTheDocument()
+    expect(screen.getByLabelText("Decrease Mario's scopa count")).toBeInTheDocument()
+    expect(screen.getByLabelText("Increase Luigi's scopa count")).toBeInTheDocument()
+    expect(screen.getByLabelText("Decrease Luigi's scopa count")).toBeInTheDocument()
+  })
+
+  it('icon buttons in the game header have aria-labels', async () => {
+    const profiles = await seedProfiles(['Mario', 'Luigi'])
+    renderApp()
+    await waitForReady()
+    await startGameWithProfiles(profiles)
+
+    await waitFor(() => expect(screen.getByText('Bank Hand')).toBeInTheDocument())
+    expect(screen.getByLabelText('Show card values')).toBeInTheDocument()
+    expect(screen.getByLabelText('Game menu')).toBeInTheDocument()
+  })
+})
+
 describe('Card Values Legend', () => {
   it('opens and closes the card values legend', async () => {
     const profiles = await seedProfiles(['Mario', 'Luigi'])

@@ -180,17 +180,23 @@ export function PlayersScreen({ open, onOpenChange, profiles, tr }: Props) {
                   {profile.name}
                 </div>
                 <div className="flex items-center gap-0.5 shrink-0">
-                  <Button variant="ghost" size="icon" onClick={() => openEdit(profile)} aria-label={tr('players.edit')}>
-                    <PencilSimple size={18} />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => openEdit(profile)}
+                    aria-label={tr('players.edit') + ': ' + profile.name}
+                    className="h-11 w-11"
+                  >
+                    <PencilSimple size={18} aria-hidden="true" />
                   </Button>
                   <Button
                     variant="ghost"
                     size="icon"
                     onClick={() => setConfirmDeleteId(profile.id)}
-                    className="text-destructive hover:text-destructive"
-                    aria-label={tr('players.delete')}
+                    className="text-destructive hover:text-destructive h-11 w-11"
+                    aria-label={tr('players.delete') + ': ' + profile.name}
                   >
-                    <Trash size={18} />
+                    <Trash size={18} aria-hidden="true" />
                   </Button>
                 </div>
               </Card>
