@@ -22,21 +22,53 @@ export type PlayerProfile = {
 
 /**
  * Curated palette offered when creating or editing a profile.
+ *
  * Order is meaningful: {@link pickDefaultColor} walks this list in order and
  * picks the first unused color, so the most distinctive options come first.
+ *
+ * Every color in this palette is WCAG 2.2 AA compliant (≥4.5:1 contrast)
+ * against both the cream app background (`oklch(0.96 0.02 80)`, ≈ #f5edd6)
+ * AND against white text — so each works whether rendered as colored name
+ * text or as a chip background with white foreground. The previous palette
+ * (Tailwind 500-shade colors) failed at 1.6–3.8:1 across the board; if you
+ * add or replace a color here, run the contrast check before merging.
+ * Existing user-created profile colors are migrated forward by
+ * {@link COLOR_MIGRATION_MAP} on app boot.
  */
 export const PROFILE_COLORS = [
-  '#3b82f6',
-  '#ef4444',
-  '#10b981',
-  '#8b5cf6',
-  '#f97316',
-  '#14b8a6',
-  '#ec4899',
-  '#eab308',
-  '#6366f1',
-  '#84cc16',
+  '#1d4ed8', // blue-700
+  '#b91c1c', // red-700
+  '#047857', // emerald-700
+  '#6d28d9', // violet-700
+  '#9a3412', // orange-800
+  '#0f766e', // teal-700
+  '#be185d', // pink-700
+  '#854d0e', // yellow-800
+  '#4338ca', // indigo-700
+  '#3f6212', // lime-800
 ]
+
+/**
+ * Map from the pre-WCAG-pass palette to the current one, used to migrate
+ * existing profiles (and the snapshotted colors on historical game players)
+ * on app boot. Position-preserving so blue stays blue, red stays red, etc.
+ *
+ * Once we ship more palette revisions we may want to chain migrations; for
+ * now this single mapping is enough and the migration is idempotent (running
+ * twice is a no-op because the old hex values are gone after the first run).
+ */
+export const COLOR_MIGRATION_MAP: Record<string, string> = {
+  '#3b82f6': '#1d4ed8',
+  '#ef4444': '#b91c1c',
+  '#10b981': '#047857',
+  '#8b5cf6': '#6d28d9',
+  '#f97316': '#9a3412',
+  '#14b8a6': '#0f766e',
+  '#ec4899': '#be185d',
+  '#eab308': '#854d0e',
+  '#6366f1': '#4338ca',
+  '#84cc16': '#3f6212',
+}
 
 /**
  * Curated emoji set offered as profile avatars.

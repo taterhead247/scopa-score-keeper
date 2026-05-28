@@ -146,6 +146,14 @@ const en: Translations = {
   'data.importConfirmBody': 'This will replace every profile, game, and setting on this device with the contents of the backup file. There is no undo.',
   'data.importConfirmAction': 'Restore',
 
+  'a11y.categoryToggle': 'Toggle {player} as {category} winner',
+  'a11y.scopaIncrement': "Increase {player}'s scopa count",
+  'a11y.scopaDecrement': "Decrease {player}'s scopa count",
+  'a11y.gameMenu': 'Game menu',
+  'a11y.cardValues': 'Show card values',
+  'a11y.scoreUpdate': '{player} scored {delta}, total {total}',
+  'a11y.handBanked': 'Hand banked. {scores}',
+
   'rename.title': 'Rename Players',
   'rename.save': 'Save Names',
   'rename.cancel': 'Cancel',
@@ -311,6 +319,14 @@ const it: Translations = {
   'data.importConfirmTitle': 'Ripristinare dal backup?',
   'data.importConfirmBody': 'Questa operazione sostituirà tutti i giocatori, le partite e le impostazioni su questo dispositivo con il contenuto del file di backup. Non è possibile annullare.',
   'data.importConfirmAction': 'Ripristina',
+
+  'a11y.categoryToggle': 'Imposta {player} come vincitore di {category}',
+  'a11y.scopaIncrement': 'Aumenta il conteggio scopa di {player}',
+  'a11y.scopaDecrement': 'Diminuisci il conteggio scopa di {player}',
+  'a11y.gameMenu': 'Menu della partita',
+  'a11y.cardValues': 'Mostra i valori delle carte',
+  'a11y.scoreUpdate': '{player} ha fatto {delta} punti, totale {total}',
+  'a11y.handBanked': 'Mano registrata. {scores}',
 
   'rename.title': 'Rinomina Giocatori',
   'rename.save': 'Salva Nomi',

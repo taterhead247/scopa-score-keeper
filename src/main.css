@@ -235,3 +235,20 @@
   85% { transform: translateY(65vh) rotate(360deg); opacity: 0.85; }
   100% { transform: translateY(110vh) rotate(420deg); opacity: 0; }
 }
+
+/*
+  WCAG 2.3.3 — strip all CSS animations and transitions when the user
+  has asked for reduced motion. This is a safety net behind the
+  usePrefersReducedMotion JS gate: if a future component adds a CSS-only
+  animation without checking the hook, it still respects the preference.
+*/
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

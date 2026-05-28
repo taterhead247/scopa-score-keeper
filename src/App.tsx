@@ -131,6 +131,14 @@ export default function App() {
   const [isTie, setIsTie] = useState(false)
   const [tiedPlayerNames, setTiedPlayerNames] = useState<string[]>([])
 
+  /**
+   * Screen-reader announcement region content. Updated when a hand is
+   * banked so AT users hear the score change — without this they'd only
+   * see the toast (which TalkBack/VoiceOver sometimes miss when it
+   * dismisses quickly) and have to navigate back to the score cards.
+   */
+  const [liveAnnouncement, setLiveAnnouncement] = useState('')
+
   /** Translate `key` using the current language, with optional `{name}`-style interpolation. */
   const tr = (key: string, params?: Record<string, string>) => t(key, language, params)
 
@@ -280,6 +288,21 @@ export default function App() {
       const me = perPlayer.find(x => x.playerId === p.id)!
       return { ...p, totalScore: me.newTotal }
     })
+
+    // Build the screen-reader announcement before evaluating win/tie so
+    // it fires on every banked hand, not just non-terminal ones.
+    const scoreSummary = perPlayer
+      .filter(p => p.score > 0)
+      .map(p => {
+        const name = players.find(pl => pl.id === p.playerId)?.name ?? ''
+        return tr('a11y.scoreUpdate', {
+          player: name,
+          delta: String(p.score),
+          total: String(p.newTotal),
+        })
+      })
+      .join('; ')
+    setLiveAnnouncement(tr('a11y.handBanked', { scores: scoreSummary }))
 
     const outcome = computeWinOutcome(updatedPlayers)
     if (outcome.kind === 'win') {
@@ -435,21 +458,33 @@ export default function App() {
    * Pill-style toggle button used inside each scoring category (cards, coins,
    * settebello, premiera) to mark which player won that category for the
    * current hand. Uses the player's profile color + emoji.
+   *
+   * `aria-pressed` exposes the toggle state to screen readers and conforms
+   * to WCAG 2.2 — without it the button just announces "Marco" with no clue
+   * whether tapping it would select or deselect the player.
    */
   const PlayerButton = ({
     player,
+    category,
     isSelected,
     onClick,
   }: {
     player: Player
+    category: 'cards' | 'coins' | 'settebello' | 'premiera'
     isSelected: boolean
     onClick: () => void
   }) => {
     const color = player.color || PROFILE_COLORS[0]
     return (
       <button
+        type="button"
         onClick={onClick}
-        className="px-3 py-1.5 rounded-md border-2 font-medium text-sm transition-colors flex items-center gap-1.5"
+        aria-pressed={isSelected}
+        aria-label={tr('a11y.categoryToggle', {
+          player: player.name,
+          category: tr(`category.${category === 'premiera' ? 'primiera' : category}`),
+        })}
+        className="px-3 py-1.5 min-h-11 rounded-md border-2 font-medium text-sm transition-colors flex items-center gap-1.5"
         style={{
           backgroundColor: isSelected ? color : 'transparent',
           borderColor: color,
@@ -472,7 +507,7 @@ export default function App() {
     )
 
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <main className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="w-full max-w-md p-6">
           <div className="relative mb-6">
             <h1 className="text-3xl font-bold text-center">{tr('app.title')}</h1>
@@ -481,10 +516,10 @@ export default function App() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="absolute right-0 top-1/2 -translate-y-1/2"
+                  className="absolute right-0 top-1/2 -translate-y-1/2 h-11 w-11"
                   aria-label={tr('menu.dataSettings')}
                 >
-                  <DotsThreeVertical size={20} />
+                  <DotsThreeVertical size={20} aria-hidden="true" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
@@ -622,7 +657,7 @@ export default function App() {
         />
 
         {dataPortability.element}
-      </div>
+      </main>
     )
   }
 
@@ -631,7 +666,7 @@ export default function App() {
   const { players } = activeGame
 
   return (
-    <div className="min-h-screen bg-background p-3 sm:p-4">
+    <main className="min-h-screen bg-background p-3 sm:p-4">
       <WinnerOverlay
         winnerName={winnerName}
         isTie={isTie}
@@ -649,13 +684,25 @@ export default function App() {
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-xl sm:text-2xl font-bold truncate">{tr('app.title')}</h1>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" onClick={() => setCardValuesOpen(true)} title={tr('cardValues.title')}>
-              <Key size={20} />
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setCardValuesOpen(true)}
+              title={tr('cardValues.title')}
+              aria-label={tr('a11y.cardValues')}
+              className="h-11 w-11"
+            >
+              <Key size={20} aria-hidden="true" />
             </Button>
             <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon">
-                <List size={20} />
+              <Button
+                variant="outline"
+                size="icon"
+                aria-label={tr('a11y.gameMenu')}
+                className="h-11 w-11"
+              >
+                <List size={20} aria-hidden="true" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
@@ -756,14 +803,27 @@ export default function App() {
                       <span>{player.name}</span>
                     </span>
                     <div className="flex items-center gap-2">
-                      <Button size="sm" variant="outline" onClick={() => adjustScopa(player.id, -1)}>
-                        <Minus size={14} />
+                      <Button
+                        variant="outline"
+                        onClick={() => adjustScopa(player.id, -1)}
+                        aria-label={tr('a11y.scopaDecrement', { player: player.name })}
+                        className="h-11 w-11"
+                      >
+                        <Minus size={16} aria-hidden="true" />
                       </Button>
-                      <span className="w-8 text-center font-semibold text-sm">
+                      <span
+                        className="w-8 text-center font-semibold text-sm"
+                        aria-label={tr('game.scopa') + ': ' + (activeGame.handScopaScores[player.id] || 0)}
+                      >
                         {activeGame.handScopaScores[player.id] || 0}
                       </span>
-                      <Button size="sm" variant="outline" onClick={() => adjustScopa(player.id, 1)}>
-                        <Plus size={14} />
+                      <Button
+                        variant="outline"
+                        onClick={() => adjustScopa(player.id, 1)}
+                        aria-label={tr('a11y.scopaIncrement', { player: player.name })}
+                        className="h-11 w-11"
+                      >
+                        <Plus size={16} aria-hidden="true" />
                       </Button>
                     </div>
                   </div>
@@ -777,7 +837,7 @@ export default function App() {
               </Label>
               <div className="flex flex-wrap gap-2">
                 {players.map(p => (
-                  <PlayerButton key={p.id} player={p} isSelected={activeGame.handCardsWinner === p.id} onClick={() => setHandWinner('cards', p.id)} />
+                  <PlayerButton key={p.id} player={p} category="cards" isSelected={activeGame.handCardsWinner === p.id} onClick={() => setHandWinner('cards', p.id)} />
                 ))}
               </div>
             </div>
@@ -788,7 +848,7 @@ export default function App() {
               </Label>
               <div className="flex flex-wrap gap-2">
                 {players.map(p => (
-                  <PlayerButton key={p.id} player={p} isSelected={activeGame.handCoinsWinner === p.id} onClick={() => setHandWinner('coins', p.id)} />
+                  <PlayerButton key={p.id} player={p} category="coins" isSelected={activeGame.handCoinsWinner === p.id} onClick={() => setHandWinner('coins', p.id)} />
                 ))}
               </div>
             </div>
@@ -799,7 +859,7 @@ export default function App() {
               </Label>
               <div className="flex flex-wrap gap-2">
                 {players.map(p => (
-                  <PlayerButton key={p.id} player={p} isSelected={activeGame.handSettebelloWinner === p.id} onClick={() => setHandWinner('settebello', p.id)} />
+                  <PlayerButton key={p.id} player={p} category="settebello" isSelected={activeGame.handSettebelloWinner === p.id} onClick={() => setHandWinner('settebello', p.id)} />
                 ))}
               </div>
             </div>
@@ -814,7 +874,7 @@ export default function App() {
               </div>
               <div className="flex flex-wrap gap-2">
                 {players.map(p => (
-                  <PlayerButton key={p.id} player={p} isSelected={activeGame.handPremieraWinner === p.id} onClick={() => setHandWinner('premiera', p.id)} />
+                  <PlayerButton key={p.id} player={p} category="premiera" isSelected={activeGame.handPremieraWinner === p.id} onClick={() => setHandWinner('premiera', p.id)} />
                 ))}
               </div>
             </div>
@@ -929,6 +989,13 @@ export default function App() {
 
       {dataPortability.element}
 
+      {/* Screen-reader-only live region (#46). Updated whenever a hand is
+        banked, so AT users hear the score change without having to navigate
+        the score cards. Visually hidden via sr-only. */}
+      <div className="sr-only" aria-live="polite" aria-atomic="true" role="status">
+        {liveAnnouncement}
+      </div>
+
       <Dialog open={openGamesOpen} onOpenChange={setOpenGamesOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -960,6 +1027,6 @@ export default function App() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </main>
   )
 }
