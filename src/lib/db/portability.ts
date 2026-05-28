@@ -152,9 +152,27 @@ export async function exportData(): Promise<BackupJson> {
  * Validate, wipe, and replace. Runs in one transaction so a half-imported
  * DB is impossible. Throws on validation failure — the caller surfaces a
  * friendly toast.
+ *
+ * Version policy: we accept any backup whose `formatVersion` /
+ * `schemaVersion` is at or below the values this build supports. Older
+ * backups round-trip naturally because the zod schema validates the shape.
+ * Newer backups (made by a future build) are rejected outright — their
+ * structure may include fields this build doesn't know about, so blindly
+ * importing could lose data or hit FK errors mid-transaction.
  */
 export async function importData(raw: unknown): Promise<void> {
   const data = zBackup.parse(raw)
+
+  if (data.formatVersion > BACKUP_FORMAT_VERSION) {
+    throw new Error(
+      `Backup format v${data.formatVersion} is newer than this app supports (v${BACKUP_FORMAT_VERSION}). Update the app and try again.`,
+    )
+  }
+  if (data.schemaVersion > SCHEMA_VERSION) {
+    throw new Error(
+      `Backup schema v${data.schemaVersion} is newer than this app supports (v${SCHEMA_VERSION}). Update the app and try again.`,
+    )
+  }
 
   const statements: Array<{ statement: string; values?: unknown[] }> = []
 

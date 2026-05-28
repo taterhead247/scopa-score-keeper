@@ -17,7 +17,6 @@ beforeEach(async () => {
 function buildActiveGame(): Game {
   return {
     id: 'g-active',
-    createdAt: 1748000000000,
     players: [
       { id: 'player-0', profileId: 'p-marco', name: 'Marco', color: '#3b82f6', emoji: '🦊', totalScore: 7 },
       { id: 'player-1', profileId: 'p-giulia', name: 'Giulia', color: '#ef4444', emoji: '🐱', totalScore: 5 },
@@ -219,6 +218,52 @@ describe('portability — validation', () => {
     await importData({
       schemaVersion: 1,
       formatVersion: BACKUP_FORMAT_VERSION,
+      exportedAt: Date.now(),
+      profiles: [],
+      favorites: [],
+      games: [],
+      completedGames: [],
+      settings: {},
+    })
+    expect(await profilesDb.listProfiles()).toEqual([])
+  })
+
+  it('rejects a backup whose formatVersion is newer than this build supports', async () => {
+    await expect(
+      importData({
+        schemaVersion: 1,
+        formatVersion: BACKUP_FORMAT_VERSION + 1,
+        exportedAt: Date.now(),
+        profiles: [],
+        favorites: [],
+        games: [],
+        completedGames: [],
+        settings: {},
+      }),
+    ).rejects.toThrow(/newer than this app supports/)
+  })
+
+  it('rejects a backup whose schemaVersion is newer than this build supports', async () => {
+    await expect(
+      importData({
+        schemaVersion: 999,
+        formatVersion: BACKUP_FORMAT_VERSION,
+        exportedAt: Date.now(),
+        profiles: [],
+        favorites: [],
+        games: [],
+        completedGames: [],
+        settings: {},
+      }),
+    ).rejects.toThrow(/newer than this app supports/)
+  })
+
+  it('accepts a backup whose formatVersion is older than this build supports', async () => {
+    // The shape still has to pass zod — but the version itself is fine if it's
+    // older. This guards the "current build keeps reading legacy backups" path.
+    await importData({
+      schemaVersion: 1,
+      formatVersion: Math.max(0, BACKUP_FORMAT_VERSION - 1),
       exportedAt: Date.now(),
       profiles: [],
       favorites: [],
