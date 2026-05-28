@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { initDatabase, profilesDb, gamesDb, runDataMigrations } from '../lib/db'
 import { queryRows } from '../lib/db/connection'
-import { COLOR_MIGRATION_MAP } from '../lib/profiles'
+import { COLOR_MIGRATION_MAP, PROFILE_COLORS } from '../lib/profiles'
 import type { Game } from '../lib/game'
 
 beforeEach(async () => {
@@ -70,8 +70,14 @@ describe('runDataMigrations — palette forward-migration (#46)', () => {
     expect(profiles[0].color).toBe('#1d4ed8')
   })
 
-  it('every old-palette color has a new-palette replacement', () => {
-    const newColors = new Set(Object.values(COLOR_MIGRATION_MAP))
-    expect(newColors.size).toBe(Object.keys(COLOR_MIGRATION_MAP).length)
+  it('every old-palette color maps to a valid unique new-palette member', () => {
+    const mapped = Object.values(COLOR_MIGRATION_MAP)
+    // Targets are unique — no two old colors collapse to the same new color.
+    expect(new Set(mapped).size).toBe(mapped.length)
+    // Targets exist in the runtime palette — catches typos that would
+    // otherwise silently migrate users to a hex that isn't pickable in the UI.
+    for (const color of mapped) {
+      expect(PROFILE_COLORS).toContain(color)
+    }
   })
 })
