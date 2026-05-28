@@ -44,6 +44,30 @@ npm test
 
 **In VS Code:** Install the [Vitest extension](https://marketplace.visualstudio.com/items?itemName=vitest.explorer) for inline test running and debugging. Tests can be run/debugged directly from the test file gutter icons.
 
+### Store-listing screenshots
+
+`npm run screenshots` regenerates the five phone screenshots used in the
+Play Store listing — setup, gameplay, Primiera calculator, statistics,
+and history — in both English and Italian.
+
+```bash
+# Terminal 1
+npm run dev
+
+# Terminal 2
+npm run screenshots         # captures both EN + IT
+npm run screenshots -- --lang en   # one language only
+```
+
+Output: `store/screenshots/{en,it}/0N-name.png` at 1080×1920 (Play Store
+phone minimum). The folder is gitignored — the seed data driving the
+shots lives in `src/lib/db/seedForScreenshots.ts` so they regenerate
+reproducibly.
+
+The seed module only loads when the URL contains `?seed=playwright` and
+the build is in dev mode (`import.meta.env.DEV`), so it tree-shakes out
+of `npm run build` entirely.
+
 ## Deploying to GitHub Pages
 
 ### Option 1: Automatic Deployment (Recommended)

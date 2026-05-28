@@ -174,6 +174,10 @@ export async function runTransaction(
   statements: Array<{ statement: string; values?: unknown[] }>,
 ): Promise<void> {
   const db = getDb()
-  await db.executeSet(statements as never[])
+  // The plugin's executeSet rejects entries without a `values` field even
+  // when the statement has no params, so normalize here. Cheaper than
+  // remembering at every call site.
+  const normalized = statements.map(s => ({ statement: s.statement, values: s.values ?? [] }))
+  await db.executeSet(normalized as never[])
   await flushWrites()
 }

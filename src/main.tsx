@@ -78,6 +78,24 @@ const queryClient = new QueryClient({
 })
 
 /**
+ * Dev-only hook for the screenshot automation in `scripts/screenshots.mjs`.
+ * When the URL contains `?seed=playwright` AND we're in a Vite dev build,
+ * dynamically load the seed module and replace the DB contents with a
+ * deterministic dataset before the app renders. Returns early — and never
+ * imports the seed module — in production, so the seed code tree-shakes
+ * out of `npm run build` entirely.
+ */
+async function maybeSeedForScreenshots(): Promise<void> {
+  if (!import.meta.env.DEV) return
+  if (typeof window === 'undefined') return
+  const params = new URLSearchParams(window.location.search)
+  if (params.get('seed') !== 'playwright') return
+  const { seedForScreenshots } = await import('./lib/db/seedForScreenshots')
+  const lang = params.get('lang') ?? 'en'
+  await seedForScreenshots(lang)
+}
+
+/**
  * Root component that gates rendering on the async SQLite initialization.
  * Shows a minimal loading screen for the (typically <100ms) init time and
  * a friendly error message if the database fails to come up.
@@ -89,6 +107,7 @@ function Bootstrap() {
   useEffect(() => {
     maybeWipeLegacyLocalStorage()
     initDatabase()
+      .then(() => maybeSeedForScreenshots())
       .then(() => setStatus('ready'))
       .catch(err => {
         setError(err instanceof Error ? err : new Error(String(err)))

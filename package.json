@@ -11,7 +11,8 @@
         "optimize": "vite optimize",
         "preview": "vite preview",
         "test": "vitest",
-        "test:run": "vitest run"
+        "test:run": "vitest run",
+        "screenshots": "node scripts/screenshots.mjs"
     },
     "dependencies": {
         "@capacitor-community/sqlite": "^8.1.0",
@@ -95,6 +96,7 @@
         "eslint-plugin-react-refresh": "^0.5.2",
         "globals": "^17.6.0",
         "jsdom": "^29.1.1",
+        "playwright": "^1.60.0",
         "sql.js": "^1.11.0",
         "tailwindcss": "^4.1.11",
         "typescript": "~6.0.3",

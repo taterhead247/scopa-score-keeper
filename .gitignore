@@ -30,3 +30,8 @@ packages
 pids
 .file-manifest
 .devcontainer/
+
+# Store listing screenshots (build artifacts — see scripts/screenshots.mjs).
+# The shot list + seed data are in src/lib/db/seedForScreenshots.ts so the
+# PNGs themselves can be regenerated reproducibly.
+store/screenshots/
