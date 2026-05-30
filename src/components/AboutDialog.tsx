@@ -15,6 +15,7 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion'
 import pkg from '../../package.json'
+import { SUPPORT_URL } from '@/lib/support'
 
 /** Translation helper signature shared across the app. */
 type Tr = (key: string, params?: Record<string, string>) => string
@@ -119,6 +120,16 @@ export function AboutDialog({ open, onOpenChange, tr, language }: Props) {
                     className="text-primary underline underline-offset-2"
                   >
                     {tr('about.link.issues')}
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href={SUPPORT_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline underline-offset-2"
+                  >
+                    {tr('support.about')}
                   </a>
                 </li>
               </ul>

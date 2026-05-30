@@ -16,7 +16,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Plus, Minus, Calculator, List, Check, Key, UsersThree, DotsThreeVertical } from '@phosphor-icons/react'
+import { Plus, Minus, Calculator, List, Check, Key, UsersThree, DotsThreeVertical, Heart } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 import { t, LANGUAGES } from '@/i18n'
 import { WinnerOverlay } from '@/components/WinnerOverlay'
@@ -55,6 +55,7 @@ const AboutDialog = lazy(() =>
 import { useOnboardingFlag } from '@/hooks/use-onboarding'
 import { PROFILE_COLORS } from '@/lib/profiles'
 import { hapticLight, hapticMedium, hapticSuccess, hapticWarning, areHapticsEnabled, setHapticsEnabled } from '@/lib/haptics'
+import { openSupportPage } from '@/lib/support'
 import type { Player, HandCategoryDetail, Game } from '@/lib/game'
 import { computeWinOutcome } from '@/lib/game'
 import { SETTINGS_KEYS } from '@/lib/db'
@@ -664,6 +665,13 @@ export default function App() {
                 <DropdownMenuItem onClick={() => setAboutOpen(true)}>
                   {tr('menu.about')}
                 </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={openSupportPage}
+                  className="text-muted-foreground"
+                >
+                  <Heart size={14} aria-hidden="true" className="mr-1.5" />
+                  {tr('support.menu')}
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -979,6 +987,14 @@ export default function App() {
               </DropdownMenuItem>
               <DropdownMenuItem onClick={dataPortability.onImport}>
                 {tr('menu.importData')}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={openSupportPage}
+                className="text-muted-foreground"
+              >
+                <Heart size={14} aria-hidden="true" className="mr-1.5" />
+                {tr('support.menu')}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
