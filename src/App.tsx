@@ -25,6 +25,7 @@ import { ProfilePicker, ProfileSeatButton } from '@/components/ProfilePicker'
 import { QuickStartSection } from '@/components/QuickStartSection'
 import { useDataPortability } from '@/components/DataPortabilityActions'
 import { OnboardingTip } from '@/components/OnboardingTip'
+import { InstallPrompt } from '@/components/InstallPrompt'
 
 /*
   Code-split dialogs that only mount on user action. The initial JS bundle
@@ -770,6 +771,8 @@ export default function App() {
                 {tr('setup.aboutLink')}
               </button>
             </div>
+
+            <InstallPrompt tr={tr} />
             <Button onClick={startGame} disabled={!allSeatsFilled} className="w-full" size="lg">
               {tr('setup.startGame')}
             </Button>

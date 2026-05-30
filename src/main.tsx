@@ -125,6 +125,21 @@ function Bootstrap() {
         setError(err instanceof Error ? err : new Error(String(err)))
         setStatus('error')
       })
+
+    // Register the Workbox service worker (#48). The plugin only emits a
+    // real worker in production builds, so the dynamic import is gated on
+    // `import.meta.env.PROD` to keep dev fast and avoid caching dev assets.
+    // `registerType: 'autoUpdate'` in vite.config.ts handles the refresh —
+    // we just need to fire-and-forget the registration here.
+    if (import.meta.env.PROD && typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+      import('virtual:pwa-register')
+        .then(({ registerSW }) => registerSW({ immediate: true }))
+        .catch(() => {
+          // Ignore: a missing service worker fails open. The app still works
+          // online via the normal Vite build; offline support is the only
+          // capability lost.
+        })
+    }
   }, [])
 
   if (status === 'loading') {
