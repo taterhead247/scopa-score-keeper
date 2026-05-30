@@ -55,7 +55,7 @@ export function InstallPrompt({ tr }: { tr: Tr }) {
           size="icon"
           onClick={markDismissed}
           aria-label={tr('install.dismiss')}
-          className="absolute top-1 right-1 h-8 w-8 text-muted-foreground hover:text-foreground"
+          className="absolute top-1 right-1 h-11 w-11 text-muted-foreground hover:text-foreground"
         >
           <X size={16} aria-hidden="true" />
         </Button>
