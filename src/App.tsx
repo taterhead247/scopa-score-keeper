@@ -771,12 +771,20 @@ export default function App() {
                 </button>
               ))}
             </div>
-            <div className="text-center">
+            <div className="flex items-center justify-center gap-4 text-xs">
               <button
                 onClick={() => setAboutOpen(true)}
-                className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors"
+                className="text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors"
               >
                 {tr('setup.aboutLink')}
+              </button>
+              <span className="text-muted-foreground/40" aria-hidden="true">·</span>
+              <button
+                onClick={openSupportPage}
+                className="inline-flex items-center gap-1 text-accent underline underline-offset-2 hover:opacity-80 transition-opacity"
+              >
+                <Heart size={12} weight="fill" aria-hidden="true" />
+                {tr('support.menu')}
               </button>
             </div>
 
