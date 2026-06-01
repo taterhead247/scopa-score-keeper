@@ -5,6 +5,7 @@ import {
   type SQLiteDBConnection,
 } from '@capacitor-community/sqlite'
 import { DB_NAME, SCHEMA_STATEMENTS, SCHEMA_VERSION, SETTINGS_KEYS } from './schema'
+import { runDataMigrations } from './migrations'
 
 /**
  * Singleton holder for the open SQLite connection.
@@ -15,6 +16,15 @@ import { DB_NAME, SCHEMA_STATEMENTS, SCHEMA_VERSION, SETTINGS_KEYS } from './sch
  */
 let dbConnection: SQLiteDBConnection | null = null
 let initPromise: Promise<void> | null = null
+/**
+ * Cached orchestrator promise for {@link ensureAppInit}: init + data
+ * migrations. Distinct from {@link initPromise} so the React layer can
+ * await both schema *and* row-level migrations before reading data,
+ * without exposing the migration step in every call site.
+ *
+ * Cleared by {@link closeDatabase} so tests get a fresh init each run.
+ */
+let appInitPromise: Promise<void> | null = null
 
 /**
  * Whether the runtime is the web build. On web, every write needs to be
@@ -112,9 +122,39 @@ async function applySchema(db: SQLiteDBConnection): Promise<void> {
 }
 
 /**
+ * Resolve once the DB is open AND data migrations have applied.
+ *
+ * This is the gate that the {@link queryRows} / {@link runStatement} /
+ * {@link runTransaction} helpers await internally, which means React
+ * components can call those helpers (via TanStack Query hooks) the
+ * instant they mount — no need to wait for an upstream `initDatabase()`
+ * resolve before rendering. That's the architectural shift that lets the
+ * setup screen paint at FCP instead of after sql.js bootstrap.
+ *
+ * Idempotent and cached: only runs the underlying init+migrations once
+ * per process. Subsequent callers get the same promise.
+ */
+export async function ensureAppInit(): Promise<void> {
+  if (appInitPromise) return appInitPromise
+  appInitPromise = (async () => {
+    await initDatabase()
+    // migrations.ts uses the un-gated `getDb` + `flushWrites` from this
+    // module. The static cycle is safe because both sides only use the
+    // imports inside function bodies, not at top-level execution.
+    await runDataMigrations()
+  })().catch(err => {
+    // Surface the failure to the caller, but clear the cache so a retry
+    // (e.g. a manual page reload) can attempt init again.
+    appInitPromise = null
+    throw err
+  })
+  return appInitPromise
+}
+
+/**
  * Get the open database connection. Throws if {@link initDatabase} hasn't
- * been awaited yet — components should never render before the init promise
- * resolves.
+ * been awaited yet — internal callers (migrations + the gated query
+ * helpers) make sure init has resolved before calling this.
  */
 export function getDb(): SQLiteDBConnection {
   if (!dbConnection) {
@@ -135,6 +175,7 @@ export async function closeDatabase(): Promise<void> {
   }
   isWebPlatform = false
   initPromise = null
+  appInitPromise = null
 }
 
 /**
@@ -152,9 +193,11 @@ export async function flushWrites(): Promise<void> {
 
 /**
  * Convenience wrapper around `db.query` that unwraps the `{values}` envelope
- * and types the rows.
+ * and types the rows. Awaits {@link ensureAppInit} so callers in React land
+ * can fire queries the instant they mount, without an upstream init gate.
  */
 export async function queryRows<T>(sql: string, params: unknown[] = []): Promise<T[]> {
+  await ensureAppInit()
   const db = getDb()
   const result = await db.query(sql, params as never[])
   return (result.values ?? []) as T[]
@@ -164,11 +207,13 @@ export async function queryRows<T>(sql: string, params: unknown[] = []): Promise
  * Convenience wrapper around `db.run` for INSERT / UPDATE / DELETE. Returns
  * `lastId` for cases where we just inserted a row with an AUTOINCREMENT id.
  * Automatically flushes the write to the web store via {@link flushWrites}.
+ * Awaits {@link ensureAppInit} so it's safe to call before any explicit init.
  */
 export async function runStatement(
   sql: string,
   params: unknown[] = [],
 ): Promise<{ changes: number; lastId: number }> {
+  await ensureAppInit()
   const db = getDb()
   const result = await db.run(sql, params as never[])
   const changes = result.changes?.changes ?? 0
@@ -181,12 +226,14 @@ export async function runStatement(
  * Run a set of related statements atomically as a transaction. Used for the
  * multi-table writes that record a banked hand or finalize a completed game.
  * Automatically flushes the write to the web store via {@link flushWrites}.
+ * Awaits {@link ensureAppInit} so it's safe to call before any explicit init.
  *
  * Each entry is `[sql, params]`. On any failure the whole set rolls back.
  */
 export async function runTransaction(
   statements: Array<{ statement: string; values?: unknown[] }>,
 ): Promise<void> {
+  await ensureAppInit()
   const db = getDb()
   // The plugin's executeSet rejects entries without a `values` field even
   // when the statement has no params, so normalize here. Cheaper than

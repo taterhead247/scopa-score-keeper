@@ -10,7 +10,7 @@
  */
 
 import { COLOR_MIGRATION_MAP } from '../profiles'
-import { runTransaction } from './connection'
+import { flushWrites, getDb } from './connection'
 
 /**
  * Forward-migrate any profile or snapshotted game_player whose `color`
@@ -23,6 +23,15 @@ import { runTransaction } from './connection'
  * contrast colors on every past game forever — is the worse choice.
  */
 export async function runDataMigrations(): Promise<void> {
+  /*
+    Call db.executeSet directly instead of going through `runTransaction`
+    from connection.ts. That helper now awaits `ensureAppInit`, and
+    ensureAppInit itself awaits this function — so routing through the
+    gated helper would deadlock. Migrations always run from inside
+    ensureAppInit (after initDatabase resolves), so the connection is
+    guaranteed open here.
+  */
+  const db = getDb()
   const statements: Array<{ statement: string; values?: unknown[] }> = []
   for (const [oldHex, newHex] of Object.entries(COLOR_MIGRATION_MAP)) {
     statements.push({
@@ -34,5 +43,6 @@ export async function runDataMigrations(): Promise<void> {
       values: [newHex, oldHex],
     })
   }
-  await runTransaction(statements)
+  await db.executeSet(statements as never[])
+  await flushWrites()
 }
