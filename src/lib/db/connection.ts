@@ -51,7 +51,21 @@ export async function initDatabase(): Promise<void> {
         defineCustomElements(window)
         // The web store needs a <jeep-sqlite> element in the DOM before init.
         if (!document.querySelector('jeep-sqlite')) {
-          document.body.appendChild(document.createElement('jeep-sqlite'))
+          const el = document.createElement('jeep-sqlite')
+          // jeep-sqlite hardcodes `wasmPath = '/assets'` (absolute, host-rooted)
+          // for locating `sql-wasm.wasm`. That works on a root-deploy host
+          // (the dev server, a custom domain at `/`) but breaks on sub-path
+          // deploys like GitHub Pages, where the file actually lives at
+          // `/<repo>/assets/sql-wasm.wasm` — the bare `/assets/...` path
+          // returns the SPA's 404 fallback (HTML), which then crashes
+          // `WebAssembly.compileStreaming` with an MIME-type error. Setting
+          // `wasm-path` to a *relative* `./assets` makes jeep-sqlite resolve
+          // the wasm relative to the current document, which works under
+          // any deployment base (root OR sub-path).
+          // The Stencil component declares this attribute as the lowercase
+          // `wasmpath` (no hyphen), not the conventional `wasm-path`.
+          el.setAttribute('wasmpath', './assets')
+          document.body.appendChild(el)
         }
         await customElements.whenDefined('jeep-sqlite')
         await sqlite.initWebStore()
