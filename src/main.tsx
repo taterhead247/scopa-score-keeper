@@ -11,6 +11,7 @@ import { ensureAppInit } from './lib/db/connection'
 import { SETTINGS_KEYS } from './lib/db/schema'
 import { getSetting } from './lib/db/settings'
 import { setHapticsEnabled } from './lib/haptics'
+import { t } from './i18n'
 
 // Outfit @font-face declarations live in index.html so the woff2 fetches
 // parallel-load with the initial HTML rather than waiting for the JS
@@ -156,12 +157,18 @@ function Bootstrap() {
   }, [])
 
   if (error) {
+    /*
+      DB init failed, so the persisted language setting is unreachable.
+      Best-effort fallback: detect Italian via navigator.language (matches
+      the two supported languages) and default everything else to English.
+    */
+    const lang = typeof navigator !== 'undefined' && navigator.language?.startsWith('it') ? 'it' : 'en'
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-6">
         <div className="max-w-md text-center space-y-3">
-          <h1 className="text-xl font-bold text-destructive">Failed to load database</h1>
+          <h1 className="text-xl font-bold text-destructive">{t('error.dbLoadTitle', lang)}</h1>
           <p className="text-sm text-muted-foreground">{error.message}</p>
-          <p className="text-xs text-muted-foreground">Try restarting the app.</p>
+          <p className="text-xs text-muted-foreground">{t('error.dbLoadRestart', lang)}</p>
         </div>
       </div>
     )
