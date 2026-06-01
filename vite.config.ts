@@ -70,28 +70,11 @@ export default defineConfig({
         // SQLite WASM is loaded lazily from /assets/sql-wasm.wasm; cap
         // chunk size so it's allowed through the precache filter.
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
-        // Google Fonts are CDN-served — runtime cache them so an offline
-        // launch doesn't show fallback text.
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/fonts\.googleapis\.com\//,
-            handler: 'StaleWhileRevalidate',
-            options: {
-              cacheName: 'google-fonts-stylesheets',
-            },
-          },
-          {
-            urlPattern: /^https:\/\/fonts\.gstatic\.com\//,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'google-fonts-webfonts',
-              expiration: {
-                maxAgeSeconds: 60 * 60 * 24 * 365,
-                maxEntries: 32,
-              },
-            },
-          },
-        ],
+        // No runtimeCaching: fonts are self-hosted via @fontsource (#52) so
+        // they ship in the precache automatically. SQL.js wasm is served
+        // from /assets/ by the static-copy plugin and is precached too —
+        // the app is fully offline-capable after install with no external
+        // origins to fetch from.
         navigateFallback: 'index.html',
       },
       devOptions: {
@@ -109,6 +92,37 @@ export default defineConfig({
      * the runtime asset resolution intact.
      */
     exclude: ['jeep-sqlite'],
+  },
+  /**
+   * Manual vendor chunking (#52). Issue's baseline build emitted a single
+   * 940 KB main chunk that tripped Vite's >500 KB warning. Splitting node_modules
+   * by library family gives the browser parallel HTTP/2 fetches and lets the
+   * cache survive small app-code changes (only the app chunk re-hashes).
+   *
+   * The split is deliberately coarse — one chunk per "weight class" — because
+   * over-splitting hurts more than it helps once each chunk drops under ~200 KB:
+   * extra requests + waterfall on slow 3G.
+   */
+  build: {
+    rolldownOptions: {
+      output: {
+        manualChunks(id: string) {
+          if (!id.includes('node_modules')) return
+          if (id.includes('/react/') || id.includes('/react-dom/') || id.includes('/scheduler/')) {
+            return 'react-vendor'
+          }
+          if (id.includes('@radix-ui/')) return 'radix-vendor'
+          if (id.includes('/recharts/') || id.includes('/d3-') || id.includes('victory-vendor')) {
+            return 'chart-vendor'
+          }
+          if (id.includes('framer-motion') || id.includes('/motion-')) return 'motion-vendor'
+          if (id.includes('@tanstack/')) return 'query-vendor'
+          if (id.includes('@phosphor-icons') || id.includes('@heroicons') || id.includes('lucide-react')) {
+            return 'icon-vendor'
+          }
+        },
+      },
+    },
   },
   resolve: {
     alias: {

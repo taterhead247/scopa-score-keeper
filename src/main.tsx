@@ -12,6 +12,10 @@ import { SETTINGS_KEYS } from './lib/db/schema'
 import { getSetting } from './lib/db/settings'
 import { setHapticsEnabled } from './lib/haptics'
 
+// Outfit @font-face declarations live in index.html so the woff2 fetches
+// parallel-load with the initial HTML rather than waiting for the JS
+// bundle (#52). The files are served from public/fonts/outfit/.
+
 import "./main.css"
 import "./styles/theme.css"
 import "./index.css"
@@ -143,9 +147,36 @@ function Bootstrap() {
   }, [])
 
   if (status === 'loading') {
+    /*
+      Mirror the static loading shell that index.html paints synchronously
+      (#52). Once React mounts it wipes #root, so without this duplicate
+      the user would see a half-second flash between the static shell and
+      whatever React renders next. Keeping the markup identical means the
+      DOM swap is invisible.
+    */
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background text-muted-foreground">
-        <span className="text-sm">Loading…</span>
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'fixed',
+          inset: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '1.25rem',
+        }}
+      >
+        <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Scopa Score" width="112" height="112">
+          <rect width="1024" height="1024" rx="180" fill="#2563eb" />
+          <rect x="222" y="162" width="560" height="780" rx="56" fill="#faf5eb" />
+          <circle cx="502" cy="552" r="220" fill="#d4a017" />
+          <circle cx="502" cy="552" r="195" fill="#f0c450" />
+          <polygon fill="#5e3a13" transform="translate(502 552)" points="0,-180 29.8,-72.1 127.3,-127.3 72.1,-29.8 180,0 72.1,29.8 127.3,127.3 29.8,72.1 0,180 -29.8,72.1 -127.3,127.3 -72.1,29.8 -180,0 -72.1,-29.8 -127.3,-127.3 -29.8,-72.1" />
+          <circle cx="502" cy="552" r="28" fill="#f0c450" />
+          <circle cx="502" cy="552" r="18" fill="#e85d4a" />
+        </svg>
+        <h1 style={{ fontSize: '2.25rem', fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1, margin: 0 }}>Scopa Score</h1>
       </div>
     )
   }
