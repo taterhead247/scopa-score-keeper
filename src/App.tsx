@@ -16,7 +16,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Plus, Minus, Calculator, List, Check, Key, UsersThree, DotsThreeVertical } from '@phosphor-icons/react'
+import { Plus, Minus, Calculator, List, Check, Key, UsersThree, DotsThreeVertical, Heart } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 import { t, LANGUAGES } from '@/i18n'
 import { WinnerOverlay } from '@/components/WinnerOverlay'
@@ -55,6 +55,7 @@ const AboutDialog = lazy(() =>
 import { useOnboardingFlag } from '@/hooks/use-onboarding'
 import { PROFILE_COLORS } from '@/lib/profiles'
 import { hapticLight, hapticMedium, hapticSuccess, hapticWarning, areHapticsEnabled, setHapticsEnabled } from '@/lib/haptics'
+import { openSupportPage } from '@/lib/support'
 import type { Player, HandCategoryDetail, Game } from '@/lib/game'
 import { computeWinOutcome } from '@/lib/game'
 import { SETTINGS_KEYS } from '@/lib/db'
@@ -664,6 +665,13 @@ export default function App() {
                 <DropdownMenuItem onClick={() => setAboutOpen(true)}>
                   {tr('menu.about')}
                 </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={openSupportPage}
+                  className="text-muted-foreground"
+                >
+                  <Heart size={14} aria-hidden="true" className="mr-1.5" />
+                  {tr('support.menu')}
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -763,12 +771,20 @@ export default function App() {
                 </button>
               ))}
             </div>
-            <div className="text-center">
+            <div className="flex items-center justify-center gap-4 text-xs">
               <button
                 onClick={() => setAboutOpen(true)}
-                className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors"
+                className="text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors"
               >
                 {tr('setup.aboutLink')}
+              </button>
+              <span className="text-muted-foreground/40" aria-hidden="true">·</span>
+              <button
+                onClick={openSupportPage}
+                className="inline-flex items-center gap-1 text-accent underline underline-offset-2 hover:opacity-80 transition-opacity"
+              >
+                <Heart size={12} weight="fill" aria-hidden="true" />
+                {tr('support.menu')}
               </button>
             </div>
 
@@ -979,6 +995,14 @@ export default function App() {
               </DropdownMenuItem>
               <DropdownMenuItem onClick={dataPortability.onImport}>
                 {tr('menu.importData')}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={openSupportPage}
+                className="text-muted-foreground"
+              >
+                <Heart size={14} aria-hidden="true" className="mr-1.5" />
+                {tr('support.menu')}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem

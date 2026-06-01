@@ -65,6 +65,9 @@ const en: Translations = {
   'install.ios.body': 'Tap the Share button',
   'install.ios.tail': "then choose “Add to Home Screen”.",
 
+  'support.menu': 'Support development',
+  'support.about': 'Support development on Ko-fi',
+
   'stats.title': 'Statistics',
   'stats.empty': 'Finish a game to see statistics here.',
   'stats.tab.leaderboard': 'Leaderboard',
@@ -273,6 +276,9 @@ const it: Translations = {
   'install.ios.title': 'Installa su iPhone o iPad',
   'install.ios.body': "Tocca il pulsante Condividi",
   'install.ios.tail': "poi scegli “Aggiungi alla schermata Home”.",
+
+  'support.menu': "Sostieni lo sviluppo",
+  'support.about': "Sostieni lo sviluppo su Ko-fi",
 
   'stats.title': 'Statistiche',
   'stats.empty': 'Termina una partita per vedere le statistiche.',
