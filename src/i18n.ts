@@ -210,6 +210,9 @@ const en: Translations = {
   'cardValues.title': 'Card Point Values',
   'cardValues.description': 'Point values for Primiera scoring. Pick the best card from each suit.',
   'cardValues.note': 'These values are used in Primiera scoring to determine the best hand.',
+
+  'error.dbLoadTitle': 'Failed to load database',
+  'error.dbLoadRestart': 'Try restarting the app.',
 }
 
 const it: Translations = {
@@ -422,6 +425,9 @@ const it: Translations = {
   'cardValues.title': 'Valori dei Punti delle Carte',
   'cardValues.description': 'Valori punti per il calcolo della Primiera. Scegli la migliore carta di ogni seme.',
   'cardValues.note': 'Questi valori vengono utilizzati nel calcolo della Primiera per determinare la mano migliore.',
+
+  'error.dbLoadTitle': 'Impossibile caricare il database',
+  'error.dbLoadRestart': 'Prova a riavviare l’app.',
 }
 
 const translations: Record<string, Translations> = { en, it }

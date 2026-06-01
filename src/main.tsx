@@ -7,10 +7,11 @@ import { ThemeProvider } from 'next-themes'
 
 import App from './App.tsx'
 import { ErrorFallback } from './ErrorFallback.tsx'
-import { initDatabase, runDataMigrations } from './lib/db'
+import { ensureAppInit } from './lib/db/connection'
 import { SETTINGS_KEYS } from './lib/db/schema'
 import { getSetting } from './lib/db/settings'
 import { setHapticsEnabled } from './lib/haptics'
+import { t } from './i18n'
 
 // Outfit @font-face declarations live in index.html so the woff2 fetches
 // parallel-load with the initial HTML rather than waiting for the JS
@@ -104,30 +105,39 @@ async function maybeSeedForScreenshots(): Promise<void> {
 }
 
 /**
- * Root component that gates rendering on the async SQLite initialization.
- * Shows a minimal loading screen for the (typically <100ms) init time and
- * a friendly error message if the database fails to come up.
+ * Root component. Renders {@link App} synchronously — the DB layer's
+ * `ensureAppInit` gate is what every TanStack Query awaits internally,
+ * so the setup screen paints at React mount time rather than after
+ * SQLite init. That moves the simulated LCP off the sql.js bootstrap
+ * dependency chain (#52 follow-up).
+ *
+ * Only switches away from `<App />` on an init failure — in which case
+ * the queries are also rejecting, but the error screen replaces the UI
+ * before users see flickering query errors.
  */
 function Bootstrap() {
-  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [error, setError] = useState<Error | null>(null)
 
   useEffect(() => {
     maybeWipeLegacyLocalStorage()
-    initDatabase()
-      .then(() => runDataMigrations())
+    /*
+      Fire-and-forget orchestrator: init + migrations are gated inside
+      ensureAppInit (which the db helpers await). The chained `then`s
+      here cover the post-init bookkeeping the app needs *once* per
+      session — haptics setting and screenshot seeding — that don't
+      otherwise have a natural caller in React land.
+    */
+    ensureAppInit()
       .then(async () => {
-        // Apply the persisted haptics preference before any UI renders so
-        // the first click of the session sees the correct setting.
+        // Apply the persisted haptics preference before any tap so
+        // the first interaction reflects the user's setting. Default
+        // to true — PRD calls out tactile as a baseline quality.
         const raw = await getSetting(SETTINGS_KEYS.hapticsEnabled)
-        // Default to true — PRD calls out tactile as a baseline quality.
         setHapticsEnabled(raw === null ? true : raw === 'true')
       })
       .then(() => maybeSeedForScreenshots())
-      .then(() => setStatus('ready'))
       .catch(err => {
         setError(err instanceof Error ? err : new Error(String(err)))
-        setStatus('error')
       })
 
     // Register the Workbox service worker (#48). The plugin only emits a
@@ -146,48 +156,19 @@ function Bootstrap() {
     }
   }, [])
 
-  if (status === 'loading') {
+  if (error) {
     /*
-      Mirror the static loading shell that index.html paints synchronously
-      (#52). Once React mounts it wipes #root, so without this duplicate
-      the user would see a half-second flash between the static shell and
-      whatever React renders next. Keeping the markup identical means the
-      DOM swap is invisible.
+      DB init failed, so the persisted language setting is unreachable.
+      Best-effort fallback: detect Italian via navigator.language (matches
+      the two supported languages) and default everything else to English.
     */
-    return (
-      <div
-        aria-hidden="true"
-        style={{
-          position: 'fixed',
-          inset: 0,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '1.25rem',
-        }}
-      >
-        <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Scopa Score" width="112" height="112">
-          <rect width="1024" height="1024" rx="180" fill="#2563eb" />
-          <rect x="222" y="162" width="560" height="780" rx="56" fill="#faf5eb" />
-          <circle cx="502" cy="552" r="220" fill="#d4a017" />
-          <circle cx="502" cy="552" r="195" fill="#f0c450" />
-          <polygon fill="#5e3a13" transform="translate(502 552)" points="0,-180 29.8,-72.1 127.3,-127.3 72.1,-29.8 180,0 72.1,29.8 127.3,127.3 29.8,72.1 0,180 -29.8,72.1 -127.3,127.3 -72.1,29.8 -180,0 -72.1,-29.8 -127.3,-127.3 -29.8,-72.1" />
-          <circle cx="502" cy="552" r="28" fill="#f0c450" />
-          <circle cx="502" cy="552" r="18" fill="#e85d4a" />
-        </svg>
-        <h1 style={{ fontSize: '2.25rem', fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1, margin: 0 }}>Scopa Score</h1>
-      </div>
-    )
-  }
-
-  if (status === 'error') {
+    const lang = typeof navigator !== 'undefined' && navigator.language?.startsWith('it') ? 'it' : 'en'
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-6">
         <div className="max-w-md text-center space-y-3">
-          <h1 className="text-xl font-bold text-destructive">Failed to load database</h1>
-          <p className="text-sm text-muted-foreground">{error?.message}</p>
-          <p className="text-xs text-muted-foreground">Try restarting the app.</p>
+          <h1 className="text-xl font-bold text-destructive">{t('error.dbLoadTitle', lang)}</h1>
+          <p className="text-sm text-muted-foreground">{error.message}</p>
+          <p className="text-xs text-muted-foreground">{t('error.dbLoadRestart', lang)}</p>
         </div>
       </div>
     )
