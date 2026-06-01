@@ -20,7 +20,6 @@ import { Plus, Minus, Calculator, List, Check, Key, UsersThree, DotsThreeVertica
 import { toast } from 'sonner'
 import { t, LANGUAGES } from '@/i18n'
 import { WinnerOverlay } from '@/components/WinnerOverlay'
-import { HandChart } from '@/components/HandChart'
 import { ProfilePicker, ProfileSeatButton } from '@/components/ProfilePicker'
 import { QuickStartSection } from '@/components/QuickStartSection'
 import { useDataPortability } from '@/components/DataPortabilityActions'
@@ -33,7 +32,14 @@ import { InstallPrompt } from '@/components/InstallPrompt'
   About (marked+dompurify), and the players-screen / calculators that
   only show after a tap. Lazy + conditional mount cuts initial parse by
   pushing those chunks behind the click that opens them.
+
+  HandChart is also lazy: although it's a panel (not a dialog), it is
+  gated by `handHistory.length > 0`, so the recharts dependency only
+  loads after the first hand of a session is banked.
 */
+const HandChart = lazy(() =>
+  import('@/components/HandChart').then(m => ({ default: m.HandChart })),
+)
 const PremieraCalc = lazy(() =>
   import('@/components/PremieraCalc').then(m => ({ default: m.PremieraCalc })),
 )
@@ -1136,11 +1142,13 @@ export default function App() {
         {activeGame.handHistory.length > 0 && (
           <Card className="p-3 sm:p-4">
             <h3 className="font-bold mb-2 text-sm">{tr('game.handHistory')}</h3>
-            <HandChart
-              players={players.map(p => ({ id: p.id, name: p.name }))}
-              handHistory={activeGame.handHistory}
-              tr={tr}
-            />
+            <Suspense fallback={null}>
+              <HandChart
+                players={players.map(p => ({ id: p.id, name: p.name }))}
+                handHistory={activeGame.handHistory}
+                tr={tr}
+              />
+            </Suspense>
             <div className="space-y-2 mt-4">
               {activeGame.handHistory.slice().reverse().map(entry => (
                 <div key={entry.handNumber} className="flex items-start gap-3 py-2 border-b border-border last:border-0">

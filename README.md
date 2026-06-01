@@ -68,6 +68,14 @@ The seed module only loads when the URL contains `?seed=playwright` and
 the build is in dev mode (`import.meta.env.DEV`), so it tree-shakes out
 of `npm run build` entirely.
 
+## Release builds & baselines
+
+See [BASELINES.md](./BASELINES.md) for:
+
+- Production build steps for web (Vite + PWA) and Android (Capacitor AAB)
+- Lighthouse + bundle-size baselines (so future regressions are detectable)
+- The pre-launch Android device-testing checklist
+
 ## Deploying to GitHub Pages
 
 ### Option 1: Automatic Deployment (Recommended)
