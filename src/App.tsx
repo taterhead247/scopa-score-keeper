@@ -787,9 +787,16 @@ export default function App() {
               <span className="text-muted-foreground/40" aria-hidden="true">·</span>
               <button
                 onClick={openSupportPage}
-                className="inline-flex items-center gap-1 text-accent underline underline-offset-2 hover:opacity-80 transition-opacity"
+                className="inline-flex items-center gap-1 text-foreground underline underline-offset-2 hover:opacity-80 transition-opacity"
               >
-                <Heart size={12} weight="fill" aria-hidden="true" />
+                {/*
+                  Keep the heart coral via `text-accent` so the link still reads
+                  as a support CTA, but anchor the *text* to the foreground color
+                  so AA contrast holds (#52). The accent at this size against the
+                  cream bg failed 2.74:1; foreground is the only AA-safe text
+                  color per the rules in CLAUDE.md.
+                */}
+                <Heart size={12} weight="fill" aria-hidden="true" className="text-accent" />
                 {tr('support.menu')}
               </button>
             </div>

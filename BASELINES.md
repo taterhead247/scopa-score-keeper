@@ -2,7 +2,7 @@
 
 Pre-launch performance, accessibility, and bundle reference points. Captured for issue #52 so future regressions can be detected.
 
-**Last measured**: 2026-06-01, commit `issue-52-prelaunch-audit` (immediately before the v1.0 cut).
+**Last measured**: 2026-06-01, branch `issue-52-prelaunch-audit` (the v1.0 cut).
 
 ---
 
@@ -13,22 +13,16 @@ npm run build           # production bundle
 npm run preview         # serves dist/ on :4173
 
 # In another shell:
-CHROME_PATH="<path to a chromium binary>" \
-  npx lighthouse http://localhost:4173 \
-    --quiet \
-    --chrome-flags='--headless=new --no-sandbox' \
-    --output=json \
-    --output-path=/tmp/lh-mobile.json \
-    --form-factor=mobile \
-    --throttling-method=simulate
+npx lighthouse http://localhost:4173 --view --form-factor=mobile
+# desktop:
+npx lighthouse http://localhost:4173 --view --preset=desktop
 ```
-
-For desktop, swap the last two flags for `--preset=desktop`.
 
 If Chrome isn't installed, Playwright's bundled Chromium works:
 
 ```bash
-CHROME_PATH=$(node -e "console.log(require('playwright').chromium.executablePath())")
+CHROME_PATH=$(node -e "console.log(require('playwright').chromium.executablePath())") \
+  npx lighthouse http://localhost:4173 --view --form-factor=mobile
 ```
 
 ---
@@ -39,8 +33,8 @@ Lighthouse 13.3.0, simulated throttling, production build served via `vite previ
 
 | Category        | Mobile | Desktop | Target | Status |
 | --------------- | -----: | ------: | -----: | :----- |
-| Performance     |     70 |      96 |     90 | mobile under target — see "known gaps" |
-| Accessibility   |     95 |      95 |     95 | meets target, regression from 100 — see "known gaps" |
+| Performance     |     71 |      97 |     90 | mobile under target — LCP gated by SQLite boot, see "known gaps" |
+| Accessibility   |    100 |     100 |     95 | pass |
 | Best Practices  |    100 |     100 |     90 | pass |
 | SEO             |    100 |     100 |     90 | pass |
 
@@ -50,14 +44,23 @@ Lighthouse 12+ retired the PWA category. Install / offline behavior is verified 
 
 | Metric                    | Value | Lighthouse score |
 | ------------------------- | ----: | ---------------: |
-| First Contentful Paint    | 3.2 s |               44 |
-| Largest Contentful Paint  | 7.1 s |                5 |
+| First Contentful Paint    | 2.9 s |               55 |
+| Largest Contentful Paint  | 7.2 s |                5 |
 | Total Blocking Time       |  20 ms |             100 |
 | Cumulative Layout Shift   |     0 |             100 |
-| Speed Index               | 3.2 s |               92 |
-| Time to Interactive       | 7.1 s |               52 |
+| Speed Index               | 2.9 s |               95 |
+| Time to Interactive       | 7.2 s |               50 |
 
-LCP dominates the score. Root cause is the jeep-sqlite + sql.js wasm fetch on the boot path, not main-bundle size; see [known gaps](#known-gaps).
+**Observed** (real, unthrottled) timings from the same trace:
+
+| Metric | Observed |
+| ------ | -------: |
+| First Paint                 | 50 ms |
+| First Contentful Paint      | 50 ms |
+| Largest Contentful Paint    | 183 ms |
+| Last visual change          | 171 ms |
+
+Throttled LCP is heavily simulated (real LCP fires <200 ms on a fast machine). The simulator projects the LCP element's dependency chain onto slow 4G + 4× CPU; the dominant link in that chain is the React+SQLite mount path, not the bundle weight or fonts — those were the targets of #52's bundle work and font self-host. See [known gaps](#known-gaps).
 
 ---
 
@@ -69,13 +72,14 @@ Production build via `npm run build`. Sizes are raw / gzipped.
 
 | Chunk                | Size     | Gzip     | Notes |
 | -------------------- | -------: | -------: | :---- |
-| `index-*.js` (app)   | 250.6 KB |  70.3 KB | App code |
+| `index-*.js` (app)   | 251.5 KB |  70.7 KB | App code |
 | `react-vendor`       | 219.0 KB |  66.3 KB | react, react-dom, scheduler |
 | `radix-vendor`       | 116.7 KB |  35.4 KB | @radix-ui/* |
 | `query-vendor`       |  35.8 KB |  10.6 KB | @tanstack/react-query |
 | `icon-vendor`        |   2.3 KB |   1.2 KB | phosphor / heroicons / lucide |
-| `jeep-sqlite.entry`  | 292.0 KB |  79.2 KB | sql.js JS shell, lazy on DB init |
+| `jeep-sqlite.entry`  | 292.0 KB |  79.2 KB | sql.js JS shell, eager on DB init |
 | CSS                  | 217.1 KB |  39.8 KB | Tailwind output |
+| Outfit (2 preloaded) |  27.4 KB |       — | 400 + 700 weights, woff2 |
 | **Total initial JS** | **~916 KB** | **~263 KB** | |
 
 ### On-demand chunks (lazy)
@@ -91,35 +95,36 @@ Production build via `npm run build`. Sizes are raw / gzipped.
 | `PremieraCalc`     |   2.6 KB |   1.0 KB | "Calculate" button |
 | `CardValuesLegend` |   2.7 KB |   1.0 KB | Card values info button |
 
-### Comparison vs. pre-#52
+### What #52 changed
 
-Single `index-*.js` was **940 KB / 278 KB gzipped** and tripped Vite's >500 KB warning. Splitting recharts behind `HandChart` (#52) plus `manualChunks` for react/radix/query/icons brings the main app chunk to 250 KB and silences the warning. Total bytes are similar but distributed across cacheable, parallel-loadable chunks.
+Pre-#52 produced a single 940 KB / 278 KB-gzipped main chunk that tripped Vite's >500 KB warning. The split sends recharts behind `HandChart` (lazy) and lifts react/radix/query/icons into dedicated vendor chunks. The main app chunk is now 250 KB and the warning is gone. Total bytes are similar but the chunks parallel-load and cache per family.
+
+`three` (declared but never imported) was removed.
+
+Outfit is now self-hosted from `public/fonts/outfit/` with inline `@font-face` + a `<link rel="preload">` on 400 + 700. Google Fonts' runtime third-party request was previously ~600 ms render-blocking on slow 4G; eliminating it shaved FCP from 3.5 s → 2.9 s.
+
+Static loading shell (cream background + brand mark + wordmark) now renders directly from `index.html` so the user sees a styled splash at HTML parse instead of a white flash followed by "Loading…". React mounts behind it. (LCP win was smaller than hoped — see known gaps.)
 
 ---
 
 ## Known gaps
 
-Things the audit surfaced that we are **not** fixing in #52. Each one is acceptable to ship with for v1.0; track as follow-ups.
+Things the audit still surfaces that we are **not** fixing here. Each one is acceptable to ship with for v1.0; track as follow-ups.
 
-### Mobile Performance 70 (target 90)
+### Mobile Performance 71 (target 90) — LCP gated by SQLite boot
 
-- LCP 7.1 s on simulated slow 4G. Bottleneck is the jeep-sqlite + sql.js wasm bootstrap (~292 KB JS + the wasm itself) blocking the first meaningful paint, which currently waits for SQLite to be ready before rendering anything past the loading state.
-- Render-blocking Google Fonts stylesheet (Outfit family). Preconnect is already set; switching to `font-display: swap` or self-hosting would close most of the FCP gap.
-- Follow-up: split the loading shell from DB init so the cream background + brand mark paint immediately, then hydrate once SQLite resolves. Self-host fonts.
+- Simulated LCP is 7.2 s. The static loading shell paints at ~50 ms (observed FCP), but Lighthouse's LCP reflects the *last* largest content paint, and that lands once React + jeep-sqlite have finished mounting and the setup screen has rendered its player-seat cards.
+- Root cause: `Bootstrap` in `src/main.tsx` waits on `initDatabase()` before rendering the setup screen. Even though SQLite init is fast locally, on simulated slow 4G + 4× CPU the dependency chain (HTML → JS bundle parse → SQLite init → setup-screen paint) projects out past 7 s.
+- Follow-up: render the setup screen optimistically against empty-state defaults and hydrate when DB queries resolve, or move `createRoot()` inside the `initDatabase().then(...)` chain so the static shell isn't replaced until DB is ready *and* contains the same biggest element as the setup screen (so the browser doesn't reset the LCP candidate).
+- This is the single architectural change that would land mobile Performance ≥ 90. It needs a careful pass on every screen that reads DB data — out of scope for #52.
 
-### Accessibility 95 (was 100 at #46)
+### Best Practices: missing source maps
 
-- One contrast violation: the Ko-fi support link in the setup footer (`src/App.tsx:790`) uses `text-accent` (`#fa6863`) at 12 px regular → 2.74 : 1 against the cream background. AA needs 4.5 : 1.
-- Introduced in #72. CLAUDE.md's a11y rule already says "only `PROFILE_COLORS` and the foreground variable are AA-safe as text" — accent fails.
-- Follow-up: swap to `text-foreground` with the heart icon doing the colored highlight, or use a 700-shade red. Re-run Lighthouse to confirm 100.
-
-### Best Practices: source maps
-
-- Lighthouse flags missing source maps for first-party JS. We deliberately don't ship maps to public pages. This is informational, not a category score deduction (BP still scores 100). No action.
+- Lighthouse flags missing source maps for first-party JS. We deliberately don't ship maps to public pages. Informational only — BP still 100. No action.
 
 ### Agentic Browsing 67
 
-- New Lighthouse 13 category (LLM-friendliness via `llms.txt`). Not a launch gate. Add `public/llms.txt` if/when we want indexing by AI agents.
+- Lighthouse 13's LLM-friendliness category (`llms.txt`). Not a launch gate. Add `public/llms.txt` if/when we want indexing by AI agents.
 
 ---
 
@@ -137,12 +142,13 @@ npm run build           # tsc --noCheck + vite build → dist/
 npm run preview         # local smoke test of the production bundle on :4173
 ```
 
-Things to verify on the preview before tagging a release:
+Verify on the preview before tagging a release:
 
 - App boots, no console errors, SQLite initializes (a profile can be created and persists across reload).
+- Static shell paints immediately on cold load — no white flash before "Scopa Score" appears.
 - Service worker registers (DevTools → Application → Service Workers shows `sw.js` "activated and is running").
 - Install prompt is dismissable; reopen in fresh profile to re-trigger.
-- Lighthouse: Performance ≥ 90 (desktop), A11y ≥ 95, BP ≥ 90, SEO ≥ 90.
+- Lighthouse: Performance ≥ 90 (desktop), A11y = 100, BP ≥ 90, SEO = 100.
 - Bundle: no Vite ">500 kB" warning.
 
 ### Android (Capacitor)

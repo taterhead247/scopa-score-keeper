@@ -70,28 +70,11 @@ export default defineConfig({
         // SQLite WASM is loaded lazily from /assets/sql-wasm.wasm; cap
         // chunk size so it's allowed through the precache filter.
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
-        // Google Fonts are CDN-served — runtime cache them so an offline
-        // launch doesn't show fallback text.
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/fonts\.googleapis\.com\//,
-            handler: 'StaleWhileRevalidate',
-            options: {
-              cacheName: 'google-fonts-stylesheets',
-            },
-          },
-          {
-            urlPattern: /^https:\/\/fonts\.gstatic\.com\//,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'google-fonts-webfonts',
-              expiration: {
-                maxAgeSeconds: 60 * 60 * 24 * 365,
-                maxEntries: 32,
-              },
-            },
-          },
-        ],
+        // No runtimeCaching: fonts are self-hosted via @fontsource (#52) so
+        // they ship in the precache automatically. SQL.js wasm is served
+        // from /assets/ by the static-copy plugin and is precached too —
+        // the app is fully offline-capable after install with no external
+        // origins to fetch from.
         navigateFallback: 'index.html',
       },
       devOptions: {
