@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ThemeProvider } from 'next-themes'
 
 import App from './App.tsx'
+import { Button } from './components/ui/button'
 import { ErrorFallback } from './ErrorFallback.tsx'
 import { ensureAppInit } from './lib/db/connection'
 import { SETTINGS_KEYS } from './lib/db/schema'
@@ -72,6 +73,62 @@ function maybeWipeLegacyLocalStorage() {
   }
 }
 
+/**
+ * Hard ceiling on how long {@link ensureAppInit} can take before we give
+ * up and show the recovery screen. Generous because first-install on slow
+ * networks legitimately takes 5–10 s for the sql.js wasm fetch; anything
+ * past 20 s almost certainly means a corrupt IndexedDB / stuck SW from
+ * an old build and the user needs the "Reset app data" hatch.
+ */
+const INIT_TIMEOUT_MS = 20_000
+
+/**
+ * Detect best-effort language for the error screen before the persisted
+ * setting has been (or can be) read. Only honors the two app languages.
+ */
+function inferLang(): string {
+  if (typeof navigator === 'undefined') return 'en'
+  return navigator.language?.startsWith('it') ? 'it' : 'en'
+}
+
+/**
+ * Unblock a stuck install by nuking every storage surface this app uses
+ * and reloading. Called from the error screen's "Reset app data" button.
+ * Order matters: kill the service worker first so the next load doesn't
+ * serve a stale shell, then wipe storage, then reload.
+ *
+ * Best-effort — each step is wrapped so a failure in one (e.g. Safari
+ * lacking `indexedDB.databases()`) doesn't abort the whole reset.
+ */
+async function resetAppData(): Promise<void> {
+  try {
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations()
+      await Promise.all(regs.map(r => r.unregister()))
+    }
+    if ('caches' in window) {
+      const names = await caches.keys()
+      await Promise.all(names.map(n => caches.delete(n)))
+    }
+  } catch { /* keep going */ }
+  try { localStorage.clear() } catch { /* keep going */ }
+  try {
+    // databases() is Chrome/Edge/Android Chrome; Safari throws. Wrap each
+    // delete in a promise so onsuccess/onerror/onblocked all resolve and
+    // we don't hang.
+    const dbs = 'databases' in indexedDB ? await indexedDB.databases() : []
+    await Promise.all(dbs.map(d => new Promise<void>(resolve => {
+      if (!d.name) return resolve()
+      const req = indexedDB.deleteDatabase(d.name)
+      req.onsuccess = req.onerror = req.onblocked = () => resolve()
+    })))
+    // Belt + suspenders for Safari and for the jeep-sqlite store, which
+    // may not appear in databases() even on Chrome under some versions.
+    ;['scopa', 'jeep-sqlite-store'].forEach(name => indexedDB.deleteDatabase(name))
+  } catch { /* keep going */ }
+  location.reload()
+}
+
 /** Single QueryClient for the app's lifetime. Created at module scope so HMR
  * doesn't lose the in-memory cache between reloads. */
 const queryClient = new QueryClient({
@@ -117,6 +174,7 @@ async function maybeSeedForScreenshots(): Promise<void> {
  */
 function Bootstrap() {
   const [error, setError] = useState<Error | null>(null)
+  const [resetting, setResetting] = useState(false)
 
   useEffect(() => {
     maybeWipeLegacyLocalStorage()
@@ -126,19 +184,32 @@ function Bootstrap() {
       here cover the post-init bookkeeping the app needs *once* per
       session — haptics setting and screenshot seeding — that don't
       otherwise have a natural caller in React land.
+
+      The Promise.race against a 20 s timeout exists specifically for
+      the "stuck boot" case (corrupt IndexedDB from a pre-#23 build,
+      service worker serving a stale shell, etc.). Without it, callers
+      to ensureAppInit would hang forever and the user would never see
+      the recovery screen — they did in practice, hence this hatch.
     */
-    ensureAppInit()
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
+    const initJob = ensureAppInit()
       .then(async () => {
-        // Apply the persisted haptics preference before any tap so
-        // the first interaction reflects the user's setting. Default
-        // to true — PRD calls out tactile as a baseline quality.
         const raw = await getSetting(SETTINGS_KEYS.hapticsEnabled)
         setHapticsEnabled(raw === null ? true : raw === 'true')
       })
       .then(() => maybeSeedForScreenshots())
-      .catch(err => {
-        setError(err instanceof Error ? err : new Error(String(err)))
-      })
+      .finally(() => { if (timeoutId !== undefined) clearTimeout(timeoutId) })
+
+    const timeoutJob = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(
+        () => reject(new Error(t('error.dbLoadInitTimeout', inferLang()))),
+        INIT_TIMEOUT_MS,
+      )
+    })
+
+    Promise.race([initJob, timeoutJob]).catch(err => {
+      setError(err instanceof Error ? err : new Error(String(err)))
+    })
 
     // Register the Workbox service worker (#48). The plugin only emits a
     // real worker in production builds, so the dynamic import is gated on
@@ -157,18 +228,27 @@ function Bootstrap() {
   }, [])
 
   if (error) {
-    /*
-      DB init failed, so the persisted language setting is unreachable.
-      Best-effort fallback: detect Italian via navigator.language (matches
-      the two supported languages) and default everything else to English.
-    */
-    const lang = typeof navigator !== 'undefined' && navigator.language?.startsWith('it') ? 'it' : 'en'
+    // DB init failed, so the persisted language setting is unreachable —
+    // fall back to navigator.language for the two supported locales.
+    const lang = inferLang()
+    const handleReset = async () => {
+      if (!window.confirm(t('error.dbLoadResetConfirm', lang))) return
+      setResetting(true)
+      await resetAppData()
+    }
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-6">
-        <div className="max-w-md text-center space-y-3">
+        <div className="max-w-md text-center space-y-4">
           <h1 className="text-xl font-bold text-destructive">{t('error.dbLoadTitle', lang)}</h1>
           <p className="text-sm text-muted-foreground">{error.message}</p>
           <p className="text-xs text-muted-foreground">{t('error.dbLoadRestart', lang)}</p>
+          <Button
+            onClick={handleReset}
+            disabled={resetting}
+            variant="destructive"
+          >
+            {resetting ? t('error.dbLoadResetting', lang) : t('error.dbLoadResetData', lang)}
+          </Button>
         </div>
       </div>
     )
