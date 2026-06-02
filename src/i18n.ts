@@ -213,6 +213,10 @@ const en: Translations = {
 
   'error.dbLoadTitle': 'Failed to load database',
   'error.dbLoadRestart': 'Try restarting the app.',
+  'error.dbLoadInitTimeout': 'Initialization timed out. The app’s storage may be in a bad state from a previous version.',
+  'error.dbLoadResetData': 'Reset app data',
+  'error.dbLoadResetConfirm': 'This will permanently delete all your profiles, games, and history. Continue?',
+  'error.dbLoadResetting': 'Resetting…',
 }
 
 const it: Translations = {
@@ -428,6 +432,10 @@ const it: Translations = {
 
   'error.dbLoadTitle': 'Impossibile caricare il database',
   'error.dbLoadRestart': 'Prova a riavviare l’app.',
+  'error.dbLoadInitTimeout': 'Inizializzazione scaduta. L’archivio dell’app potrebbe essere in uno stato non valido da una versione precedente.',
+  'error.dbLoadResetData': 'Ripristina dati app',
+  'error.dbLoadResetConfirm': 'Questo eliminerà definitivamente tutti i profili, le partite e la cronologia. Continuare?',
+  'error.dbLoadResetting': 'Ripristino in corso…',
 }
 
 const translations: Record<string, Translations> = { en, it }
